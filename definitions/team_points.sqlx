@@ -115,3 +115,5 @@ JOIN
 ON
   home.home_team_id = away.away_team_id
   AND home.competition_edition_id = away.competition_edition_id
+  AND home.competition_id = away.competition_id
+  AND home.season_id = away.season_id

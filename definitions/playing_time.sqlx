@@ -15,17 +15,21 @@ config {
 
 SELECT 
   player_id,
-  CONCAT(first_name, ' ', last_name) AS player_name,
-  short_name,
-  birthday,
-  gender,
   team_id,
   competition_edition_id,
-  competition_edition_name,
   competition_id,
-  competition_name,
   season_id,
-  season_name,
+
+  ANY_VALUE(wyscout_id) AS wyscout_id,
+  ANY_VALUE(first_name) AS first_name,
+  ANY_VALUE(last_name) AS last_name,
+  CONCAT(ANY_VALUE(first_name), ' ', ANY_VALUE(last_name)) AS player_name,
+  ANY_VALUE(short_name) AS short_name,
+  ANY_VALUE(birthday) AS birthday,
+  ANY_VALUE(gender) AS gender,
+  ANY_VALUE(competition_edition_name) AS competition_edition_name,
+  ANY_VALUE(competition_name) AS competition_name,
+  ANY_VALUE(season_name) AS season_name,
 
   COUNT(*) as count_in_squad,
 
@@ -51,17 +55,8 @@ SELECT
 FROM
     ${ref("player_performances")}
 GROUP BY
-  player_id,
-  wyscout_id,
-  first_name,
-  last_name,
-  short_name,
-  birthday,
-  gender,
-  team_id,
-  competition_edition_id,
-  competition_edition_name,
-  competition_id,
-  competition_name,
-  season_id,
-  season_name
+  player_id, 
+  team_id, 
+  competition_edition_id, 
+  competition_id, 
+  season_id
