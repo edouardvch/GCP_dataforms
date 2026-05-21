@@ -1,0 +1,117 @@
+config {
+    type: "table",
+    schema: "analysis_team_sandbox",
+    name: "team_points",
+    description: "Team match result and competition points",
+    bigquery: {
+        clusterBy: ["team_id", "competition_edition_id", "competition_id", "season_id"]
+    },
+    uniqueKey:["team_id", "competition_edition_id", "competition_id", "season_id"],
+    assertions:{
+        uniqueKey: ["team_id", "competition_edition_id", "competition_id", "season_id"],
+        nonNull: ["team_id", "competition_edition_id", "competition_id", "season_id"]
+    }
+}
+
+WITH home_points AS (
+  SELECT
+    home_team_id,
+    competition_edition_id,
+    competition_id,
+    season_id,
+
+    COUNT(*) AS count_match,
+
+    SUM(CASE
+      WHEN home_team_score > away_team_score THEN 1
+      ELSE 0
+    END) AS wins,
+
+    SUM(CASE
+      WHEN home_team_score = away_team_score THEN 1
+      ELSE 0
+    END) AS draws,
+
+    SUM(CASE
+      WHEN home_team_score < away_team_score THEN 1
+      ELSE 0
+    END) AS losses,
+
+    SUM(CASE
+      WHEN home_team_score > away_team_score THEN 3
+      WHEN home_team_score = away_team_score THEN 1
+      ELSE 0
+    END) AS points
+
+  FROM 
+    ${ref("match_metadata")}
+  WHERE
+    status != 'postponed'
+  GROUP BY
+    home_team_id,
+    competition_edition_id,
+    competition_id,
+    season_id
+),
+
+away_points AS (
+  SELECT
+    away_team_id,
+    competition_edition_id,
+    competition_id,
+    season_id,
+
+    COUNT(*) AS count_match,
+
+    SUM(CASE
+      WHEN away_team_score > home_team_score THEN 1
+      ELSE 0
+    END) AS wins,
+
+    SUM(CASE
+      WHEN away_team_score = home_team_score THEN 1
+      ELSE 0
+    END) AS draws,
+
+    SUM(CASE
+      WHEN away_team_score < home_team_score THEN 1
+      ELSE 0
+    END) AS losses,
+
+    SUM(CASE
+      WHEN away_team_score > home_team_score THEN 3
+      WHEN away_team_score = home_team_score THEN 1
+      ELSE 0
+    END) AS points
+
+  FROM 
+    ${ref("match_metadata")}
+  WHERE
+    status != 'postponed'
+  GROUP BY
+    away_team_id,
+    competition_edition_id,
+    competition_id,
+    season_id
+)
+
+SELECT
+  home.home_team_id AS team_id,
+  home.competition_edition_id,
+  home.competition_id,
+  home.season_id,
+  home.count_match + away.count_match AS count_match,
+  home.wins + away.wins AS wins,
+  home.draws + away.draws AS draws,
+  home.losses + away.losses AS losses,
+  home.points + away.points AS points,
+
+  RANK() OVER (PARTITION BY home.competition_edition_id ORDER BY home.points + away.points DESC) AS table_rank
+
+FROM
+  home_points AS home
+JOIN
+  away_points AS away
+ON
+  home.home_team_id = away.away_team_id
+  AND home.competition_edition_id = away.competition_edition_id

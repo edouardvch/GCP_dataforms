@@ -1,0 +1,5 @@
+dataformCoreVersion: "3.0.0"
+defaultProject: analysisteam-cloudsql
+defaultDataset: analysis_team_sandbox
+defaultLocation: EU
+defaultAssertionDataset: dataform_assertions

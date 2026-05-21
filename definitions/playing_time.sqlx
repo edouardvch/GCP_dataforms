@@ -1,0 +1,67 @@
+config {
+    type: "table",
+    schema: "analysis_team_sandbox",
+    name: "playing_time_aggregates",
+    description: "Player playing time",
+    bigquery: {
+        clusterBy: ["player_id", "team_id", "competition_edition_id"]
+    },
+    uniqueKey:["player_id", "team_id", "competition_edition_id", "competition_id", "season_id"],
+    assertions:{
+        uniqueKey: ["player_id", "team_id", "competition_edition_id", "competition_id", "season_id"],
+        nonNull: ["player_id", "team_id", "competition_edition_id", "competition_id", "season_id"]
+    }
+}
+
+SELECT 
+  player_id,
+  CONCAT(first_name, ' ', last_name) AS player_name,
+  short_name,
+  birthday,
+  gender,
+  team_id,
+  competition_edition_id,
+  competition_edition_name,
+  competition_id,
+  competition_name,
+  season_id,
+  season_name,
+
+  COUNT(*) as count_in_squad,
+
+  SUM(
+    CASE WHEN 
+      start_time = '00:00:00'
+    THEN 1 ELSE 0 END
+  )
+  AS count_start_match,
+
+  SUM(
+    CASE WHEN 
+      start_time IS NOT NULL
+      AND start_time != '00:00:00'
+    THEN 1 ELSE 0 END
+  )
+  AS count_sub_apperance,
+
+  COUNT(*) * 90 as minutes_available,
+  SUM(minutes_played) AS minutes_played,
+  (SUM(minutes_played) / (COUNT(*) * 90)) * 100 as minutes_played_percentage
+
+FROM
+    ${ref("player_performances")}
+GROUP BY
+  player_id,
+  wyscout_id,
+  first_name,
+  last_name,
+  short_name,
+  birthday,
+  gender,
+  team_id,
+  competition_edition_id,
+  competition_edition_name,
+  competition_id,
+  competition_name,
+  season_id,
+  season_name
