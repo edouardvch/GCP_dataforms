@@ -1,7 +1,7 @@
 config {
     type: "table",
-    schema: "analysis_team_sandbox",
-    name: "core_metadata_dataform_test",
+    schema: "metadata",
+    name: "core_metadata",
     description: "Metadata from match, player_performances, teams, competition_editions, and so on",
     bigquery: {
         clusterBy: ["match_id", "competition_edition_id", "player_id", "team_id"]
@@ -27,8 +27,8 @@ WITH mm_ce AS (
     ce.competition_age_group,
     ce.season_start_year,
     season_end_year
-    FROM `analysisteam-cloudsql.metadata.match_metadata` AS mm
-    JOIN `analysisteam-cloudsql.metadata.competition_editions` AS ce
+    FROM ${ref("match_metadata")} AS mm
+    JOIN ${ref("competition_editions")} AS ce
     ON ce.id = mm.competition_edition_id
 ),
 
@@ -82,7 +82,7 @@ mmce_pp AS (
   pp.match_period_4_start_frame,
   pp.match_period_4_end_frame,
   pp.match_period_4_minutes_played
-  FROM `analysisteam-cloudsql.metadata.player_performances` AS pp
+  FROM ${ref("player_performances")} AS pp
   JOIN mm_ce ON mm_ce.match_id = pp.match_id
   ),
 
@@ -96,7 +96,7 @@ mmcepp_t AS (
   t.stadium,
   t.stadium_city,
   t.stadium_capacity
-  FROM `analysisteam-cloudsql.metadata.teams` as t
+  FROM ${ref("teams")} as t
   JOIN mmce_pp
   ON mmce_pp.team_id = t.id),
 
@@ -127,7 +127,7 @@ core_metadata AS (
   dc.frame_selection_version,
   dc.physical_v3_status
   FROM mmcepp_t
-  LEFT JOIN `analysisteam-cloudsql.metadata.data_collection` AS dc
+  LEFT JOIN ${ref("data_collection")} AS dc
   ON mmcepp_t.match_id = dc.match_id)
 
 SELECT * FROM core_metadata
