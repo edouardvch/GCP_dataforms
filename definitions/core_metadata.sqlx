@@ -1,0 +1,133 @@
+config {
+    type: "table",
+    schema: "analysis_team_sandbox",
+    name: "core_metadata_dataform_test",
+    description: "Metadata from match, player_performances, teams, competition_editions, and so on",
+    bigquery: {
+        clusterBy: ["match_id", "competition_edition_id", "player_id", "team_id"]
+    },
+    uniqueKey:["match_id", "competition_edition_id", "player_id", "team_id"],
+    assertions:{
+        uniqueKey: ["match_id", "competition_edition_id", "player_id", "team_id"],
+        nonNull: ["match_id", "competition_edition_id", "player_id", "team_id"]
+    }
+}
+
+WITH mm_ce AS (
+  SELECT
+    mm.match_id,
+    mm.competition_edition_id,
+    mm.competition_edition_name,
+    mm.competition_id,
+    mm.competition_name,
+    mm.season_id,
+    mm.season_name,
+    ce.competition_gender,
+    ce.competition_area,
+    ce.competition_age_group,
+    ce.season_start_year,
+    season_end_year
+    FROM `analysisteam-cloudsql.metadata.match_metadata` AS mm
+    JOIN `analysisteam-cloudsql.metadata.competition_editions` AS ce
+    ON ce.id = mm.competition_edition_id
+),
+
+mmce_pp AS (
+  SELECT
+  mm_ce.*,
+  pp.player_id,
+  pp.wyscout_id AS player_wyscout_id,
+  pp.team_id,
+  pp.team_player_id,
+  pp.number,
+  CONCAT(pp.first_name, ' ',pp.last_name) AS player_name,
+  pp.short_name,
+  pp.birthday,
+  pp.gender,
+  pp.trackable_object,
+  pp.start_time,
+  pp.end_time,
+  pp.yellow_card,
+  pp.red_card,
+  pp.injured,
+  pp.goal,
+  pp.own_goal,
+  pp.player_role_id,
+  pp.player_role_position_group,
+  pp.player_role_name,
+  pp.player_role_acronym,
+  pp.playing_time_total_minutes_tip,
+  pp.playing_time_total_minutes_otip,
+  pp.playing_time_total_start_frame,
+  pp.playing_time_total_end_frame,
+  pp.playing_time_total_minutes_played,
+  pp.playing_time_total_minutes_played_regular_time,
+  pp.match_period_1_minutes_tip,
+  pp.match_period_1_minutes_otip,
+  pp.match_period_1_start_frame,
+  pp.match_period_1_end_frame,
+  pp.match_period_1_minutes_played,
+  pp.match_period_2_minutes_tip,
+  pp.match_period_2_minutes_otip,
+  pp.match_period_2_start_frame,
+  pp.match_period_2_end_frame,
+  pp.match_period_2_minutes_played,
+  pp.match_period_3_minutes_tip,
+  pp.match_period_3_minutes_otip,
+  pp.match_period_3_start_frame,
+  pp.match_period_3_end_frame,
+  pp.match_period_3_minutes_played,
+  pp.match_period_4_minutes_tip,
+  pp.match_period_4_minutes_otip,
+  pp.match_period_4_start_frame,
+  pp.match_period_4_end_frame,
+  pp.match_period_4_minutes_played
+  FROM `analysisteam-cloudsql.metadata.player_performances` AS pp
+  JOIN mm_ce ON mm_ce.match_id = pp.match_id
+  ),
+
+mmcepp_t AS (
+  SELECT 
+  mmce_pp.*,
+  t.name as team_name,
+  t.coach AS coach_name,
+  t.stadium_id,
+  t.stadium_name,
+  t.stadium,
+  t.stadium_city,
+  t.stadium_capacity
+  FROM `analysisteam-cloudsql.metadata.teams` as t
+  JOIN mmce_pp
+  ON mmce_pp.team_id = t.id),
+
+core_metadata AS (
+  SELECT
+  mmcepp_t.*,
+  dc.status,
+  dc.physical_last_modified,
+  dc.physical_v3_last_modified,
+  dc.tracking_last_modified,
+  dc.tracking_extra_last_modified,
+  dc.tracking_extra_players_quality_index,
+  dc.tracking_extra_ball_quality_index,
+  dc.tracking_extra_v3_last_modified,
+  dc.tracking_extra_v3_players_quality_index,
+  dc.tracking_extra_v3_ball_quality_index,
+  dc.in_possession_off_ball_runs_last_modified,
+  dc.in_possession_passes_last_modified,
+  dc.in_possession_dealing_with_pressure_last_modified,
+  dc.dynamic_events_check,
+  dc.dynamic_events_last_modified,
+  dc.video_feed_type,
+  dc.period_frame_provider,
+  dc.lineup_provider,
+  dc.data_check,
+  dc.video_check,
+  dc.synchronized_with_events,
+  dc.frame_selection_version,
+  dc.physical_v3_status
+  FROM mmcepp_t
+  LEFT JOIN `analysisteam-cloudsql.metadata.data_collection` AS dc
+  ON mmcepp_t.match_id = dc.match_id)
+
+SELECT * FROM core_metadata
