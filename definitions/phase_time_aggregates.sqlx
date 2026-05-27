@@ -16,7 +16,7 @@ config {
 WITH phase_times AS (
   SELECT 
     team_in_possession_id,
-    team_in_possession_shortname,
+    ANY_VALUE(team_in_possession_shortname) AS team_in_possession_shortname,
     SUM(duration) AS total_phase_time,
     SUM(CASE WHEN team_in_possession_phase_type = 'build_up' THEN duration ELSE NULL END) AS build_up_time, 
     SUM(CASE WHEN team_in_possession_phase_type = 'create' THEN duration ELSE NULL END) AS create_time, 
@@ -29,8 +29,7 @@ WITH phase_times AS (
   FROM 
     ${ref("phases_of_play")}
   GROUP BY
-    team_in_possession_id,
-    team_in_possession_shortname
+    team_in_possession_id
 )
 
 SELECT
