@@ -1,0 +1,68 @@
+config {
+    type: "table",
+    schema: "dynamic_events_oop",
+    name: "dynamic_events_oop",
+    description: "",
+    bigquery: {
+        clusterBy: ["event_id", "match_id", "team_id", "player_id"]
+    },
+    uniqueKey:["event_id", "match_id", "team_id", "player_id"],
+    assertions:{
+        uniqueKey: ["event_id", "match_id", "team_id", "player_id"],
+        nonNull: ["event_id", "match_id", "team_id", "player_id"]
+    }
+}
+
+SELECT
+  dynamic_events.*,    
+  -- Higher level positional group.
+  CASE 
+    WHEN dynamic_events.player_position IN ('GK') THEN 'Goalkeeper'
+    WHEN dynamic_events.player_position IN ('LCB', 'CB', 'RCB') THEN 'Central Defender'
+    WHEN dynamic_events.player_position IN ('LWB', 'LB') THEN 'Left Full Back'
+    WHEN dynamic_events.player_position IN ('RWB', 'RB') THEN 'Right Full Back'
+    WHEN dynamic_events.player_position IN ('LDM', 'DM', 'RDM') THEN 'Defensive Midfield'
+    WHEN dynamic_events.player_position IN ('LM', 'AM', 'RM') THEN 'Midfield'
+    WHEN dynamic_events.player_position IN ('LW', 'LF') THEN 'Left Wide Attacker'
+    WHEN dynamic_events.player_position IN ('RW', 'RF') THEN 'Right Wide Attacker'
+    WHEN dynamic_events.player_position IN ('CF') THEN 'Center Forward'
+    ELSE 'Other Position'
+  END AS player_position_group,
+
+  -- Higher level positional group (player in possession).
+  CASE 
+    WHEN dynamic_events.player_in_possession_position IN ('GK') THEN 'Goalkeeper'
+    WHEN dynamic_events.player_in_possession_position IN ('LCB', 'CB', 'RCB') THEN 'Central Defender'
+    WHEN dynamic_events.player_in_possession_position IN ('LWB', 'LB') THEN 'Left Full Back'
+    WHEN dynamic_events.player_in_possession_position IN ('RWB', 'RB') THEN 'Right Full Back'
+    WHEN dynamic_events.player_in_possession_position IN ('LDM', 'DM', 'RDM') THEN 'Defensive Midfield'
+    WHEN dynamic_events.player_in_possession_position IN ('LM', 'AM', 'RM') THEN 'Midfield'
+    WHEN dynamic_events.player_in_possession_position IN ('LW', 'LF') THEN 'Left Wide Attacker'
+    WHEN dynamic_events.player_in_possession_position IN ('RW', 'RF') THEN 'Right Wide Attacker'
+    WHEN dynamic_events.player_in_possession_position IN ('CF') THEN 'Center Forward'
+    ELSE 'Other Position'
+  END AS player_in_possession_position_group,
+
+  -- Addtional match information.
+  match_meta.competition_edition_id,
+  match_meta.competition_edition_name,
+  match_meta.competition_id,
+  match_meta.competition_name,
+  match_meta.season_id,
+  match_meta.season_name,
+  CONCAT(match_meta.home_team_name, ' v ',match_meta.away_team_name,' (', match_meta.date_time, ')') AS match_name,
+
+  CASE WHEN dynamic_events.team_id = match_meta.home_team_id THEN match_meta.away_team_id ELSE match_meta.home_team_id END AS opposition_team_id
+
+FROM     
+  ${ref("dynamic_events")} AS dynamic_events 
+JOIN 
+  ${ref("match_metadata")} as match_meta  
+ON dynamic_events.match_id = match_meta.match_id
+-- LEFT JOIN 
+--   analysisteam-cloudsql.skillcorner_external_data.dynamic_events_ip AS filtered_possessions
+-- ON 
+--   dynamic_events.match_id = filtered_possessions.match_id
+--   AND dynamic_events.player_id = filtered_possessions.player_id
+--   AND filtered_options.event_type = 'player_possession'
+WHERE event_type='on_ball_engagement'
