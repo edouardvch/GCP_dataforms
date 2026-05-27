@@ -1,6 +1,0 @@
-config {
-  type: "declaration",
-  database: "analysisteam-cloudsql",
-  schema: "analysis_team_sandbox",
-  name: "team_points"
-}
