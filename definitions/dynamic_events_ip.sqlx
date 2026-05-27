@@ -15,7 +15,6 @@ config {
 
 SELECT
   dynamic_events.*,
-  filtered_options.event_id AS associated_passing_option,
 
   CASE
     WHEN dynamic_events.event_type = 'player_possession' AND
@@ -62,16 +61,3 @@ SELECT
 
 FROM
   ${ref("dynamic_events")} AS dynamic_events
-LEFT JOIN
-  ${ref("dynamic_events")} AS filtered_options
-ON
-  dynamic_events.match_id = filtered_options.match_id
-  AND dynamic_events.player_id = filtered_options.player_id
-  AND dynamic_events.event_type = 'player_possession'
-  AND dynamic_events.start_type = 'pass_reception'
-  AND filtered_options.event_type = 'passing_option'
-  AND filtered_options.targeted = TRUE
-  AND dynamic_events.pass_distance_received = filtered_options.pass_distance
-  AND dynamic_events.pass_angle_received = filtered_options.pass_angle
-  AND dynamic_events.frame_start > filtered_options.frame_start
-  AND dynamic_events.frame_start - filtered_options.frame_end <= 60
