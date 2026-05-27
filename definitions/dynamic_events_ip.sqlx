@@ -61,3 +61,5 @@ SELECT
 
 FROM
   ${ref("dynamic_events")} AS dynamic_events
+
+WHERE event_type = 'player_possession'
