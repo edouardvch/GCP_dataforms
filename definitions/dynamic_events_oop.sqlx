@@ -15,33 +15,33 @@ config {
 
 SELECT
   dynamic_events.*,    
-  -- Higher level positional group.
-  CASE 
-    WHEN dynamic_events.player_position IN ('GK') THEN 'Goalkeeper'
-    WHEN dynamic_events.player_position IN ('LCB', 'CB', 'RCB') THEN 'Central Defender'
-    WHEN dynamic_events.player_position IN ('LWB', 'LB') THEN 'Left Full Back'
-    WHEN dynamic_events.player_position IN ('RWB', 'RB') THEN 'Right Full Back'
-    WHEN dynamic_events.player_position IN ('LDM', 'DM', 'RDM') THEN 'Defensive Midfield'
-    WHEN dynamic_events.player_position IN ('LM', 'AM', 'RM') THEN 'Midfield'
-    WHEN dynamic_events.player_position IN ('LW', 'LF') THEN 'Left Wide Attacker'
-    WHEN dynamic_events.player_position IN ('RW', 'RF') THEN 'Right Wide Attacker'
-    WHEN dynamic_events.player_position IN ('CF') THEN 'Center Forward'
-    ELSE 'Other Position'
-  END AS player_position_group,
+  -- -- Higher level positional group.
+  -- CASE 
+  --   WHEN dynamic_events.player_position IN ('GK') THEN 'Goalkeeper'
+  --   WHEN dynamic_events.player_position IN ('LCB', 'CB', 'RCB') THEN 'Central Defender'
+  --   WHEN dynamic_events.player_position IN ('LWB', 'LB') THEN 'Left Full Back'
+  --   WHEN dynamic_events.player_position IN ('RWB', 'RB') THEN 'Right Full Back'
+  --   WHEN dynamic_events.player_position IN ('LDM', 'DM', 'RDM') THEN 'Defensive Midfield'
+  --   WHEN dynamic_events.player_position IN ('LM', 'AM', 'RM') THEN 'Midfield'
+  --   WHEN dynamic_events.player_position IN ('LW', 'LF') THEN 'Left Wide Attacker'
+  --   WHEN dynamic_events.player_position IN ('RW', 'RF') THEN 'Right Wide Attacker'
+  --   WHEN dynamic_events.player_position IN ('CF') THEN 'Center Forward'
+  --   ELSE 'Other Position'
+  -- END AS player_position_group,
 
-  -- Higher level positional group (player in possession).
-  CASE 
-    WHEN dynamic_events.player_in_possession_position IN ('GK') THEN 'Goalkeeper'
-    WHEN dynamic_events.player_in_possession_position IN ('LCB', 'CB', 'RCB') THEN 'Central Defender'
-    WHEN dynamic_events.player_in_possession_position IN ('LWB', 'LB') THEN 'Left Full Back'
-    WHEN dynamic_events.player_in_possession_position IN ('RWB', 'RB') THEN 'Right Full Back'
-    WHEN dynamic_events.player_in_possession_position IN ('LDM', 'DM', 'RDM') THEN 'Defensive Midfield'
-    WHEN dynamic_events.player_in_possession_position IN ('LM', 'AM', 'RM') THEN 'Midfield'
-    WHEN dynamic_events.player_in_possession_position IN ('LW', 'LF') THEN 'Left Wide Attacker'
-    WHEN dynamic_events.player_in_possession_position IN ('RW', 'RF') THEN 'Right Wide Attacker'
-    WHEN dynamic_events.player_in_possession_position IN ('CF') THEN 'Center Forward'
-    ELSE 'Other Position'
-  END AS player_in_possession_position_group,
+  -- -- Higher level positional group (player in possession).
+  -- CASE 
+  --   WHEN dynamic_events.player_in_possession_position IN ('GK') THEN 'Goalkeeper'
+  --   WHEN dynamic_events.player_in_possession_position IN ('LCB', 'CB', 'RCB') THEN 'Central Defender'
+  --   WHEN dynamic_events.player_in_possession_position IN ('LWB', 'LB') THEN 'Left Full Back'
+  --   WHEN dynamic_events.player_in_possession_position IN ('RWB', 'RB') THEN 'Right Full Back'
+  --   WHEN dynamic_events.player_in_possession_position IN ('LDM', 'DM', 'RDM') THEN 'Defensive Midfield'
+  --   WHEN dynamic_events.player_in_possession_position IN ('LM', 'AM', 'RM') THEN 'Midfield'
+  --   WHEN dynamic_events.player_in_possession_position IN ('LW', 'LF') THEN 'Left Wide Attacker'
+  --   WHEN dynamic_events.player_in_possession_position IN ('RW', 'RF') THEN 'Right Wide Attacker'
+  --   WHEN dynamic_events.player_in_possession_position IN ('CF') THEN 'Center Forward'
+  --   ELSE 'Other Position'
+  -- END AS player_in_possession_position_group,
 
   -- Addtional match information.
   match_meta.competition_edition_id,
