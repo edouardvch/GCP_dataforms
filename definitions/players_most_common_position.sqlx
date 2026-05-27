@@ -1,0 +1,42 @@
+config {
+    type: "table",
+    schema: "analysis_team_sandbox",
+    name: "players_most_common_position",
+    description: "Most common position on the field for each player",
+    bigquery: {
+        clusterBy: ["id"]
+    },
+    uniqueKey:["id"],
+    assertions:{
+        uniqueKey: ["id"],
+        nonNull: ["id"]
+    }
+}
+
+SELECT 
+  players.*, 
+  COALESCE(role_subquery.player_role_acronym) AS most_common_position, 
+  role_subquery.count_match AS count_match_most_common_position,
+  COALESCE(group_subquery.player_role_position_group) AS most_common_position_group, 
+  group_subquery.count_match AS count_match_most_common_position_group
+FROM ${ref("players")} AS players
+LEFT JOIN (
+    SELECT id, 
+    player_role_acronym, COUNT(*) as count_match,
+          ROW_NUMBER() OVER (PARTITION BY id ORDER BY COUNT(*) DESC, player_role_acronym ASC) as rank
+
+    FROM ${ref("player_performances")}
+    WHERE player_role_acronym != 'SUB'
+    GROUP BY id, player_role_acronym
+) AS role_subquery
+ON players.id = role_subquery.id AND role_subquery.rank = 1
+LEFT JOIN (
+    SELECT id, 
+    player_role_position_group, COUNT(*) as count_match,
+          ROW_NUMBER() OVER (PARTITION BY id ORDER BY COUNT(*) DESC, player_role_position_group ASC) as rank
+
+    FROM ${ref("player_performances")}
+    WHERE player_role_acronym != 'SUB'
+    GROUP BY id, player_role_position_group
+) AS group_subquery
+ON players.id = group_subquery.id AND group_subquery.rank = 1
