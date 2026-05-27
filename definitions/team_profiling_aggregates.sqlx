@@ -1,0 +1,260 @@
+config {
+    type: "table",
+    schema: "analysis_team_sandbox",
+    name: "team_profiling_aggregates",
+    description: "",
+    bigquery: {
+        clusterBy: ["team_id", "competition_edition_id"]
+    },
+    uniqueKey:["team_id", "season_id", "competition_id", "competition_edition_id"],
+    assertions:{
+        uniqueKey: ["team_id", "season_id", "competition_id", "competition_edition_id"],
+        nonNull: ["team_id", "season_id", "competition_id", "competition_edition_id"]
+    }
+}
+
+WITH in_posssesion AS (
+  SELECT 
+    team_id,
+    team_shortname,
+    season_id,
+    season_name,
+    competition_id,
+    competition_name,
+    competition_edition_id,
+    competition_edition_name,
+    
+    COUNT(DISTINCT match_id) AS count_match,
+ 
+    (COALESCE(SUM(CASE WHEN third_start IN ('middle_third', 'defensive_third') AND event_type = 'player_possession' AND end_type = 'pass' AND player_targeted_difficult_pass_target IS FALSE THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN third_start IN ('middle_third', 'defensive_third') AND event_type = 'player_possession' AND end_type = 'pass' THEN 1 ELSE 0 END), 0), 0)) * 100 AS possession_control,
+
+    -- (COALESCE(SUM(CASE WHEN event_type = 'passing_option' AND (associated_off_ball_run_subtype = 'behind') AND targeted IS TRUE THEN 1 ELSE 0 END) / 
+    -- NULLIF(SUM(CASE WHEN event_type = 'player_possession' AND n_off_ball_runs >= 1 THEN 1 ELSE 0 END), 0), 0)) * 100 AS playing_in_behind,
+
+
+    (COUNT(DISTINCT CASE 
+        WHEN event_type = 'off_ball_run' 
+            AND event_subtype = 'behind'
+            AND targeted IS TRUE
+        THEN CONCAT(match_id, '-', associated_player_possession_event_id) 
+        ELSE NULL 
+    END) /
+    NULLIF    (COUNT(DISTINCT CASE 
+        WHEN event_type = 'off_ball_run' 
+        THEN CONCAT(match_id, '-', associated_player_possession_event_id) 
+        ELSE NULL 
+    END), 0) * 100)  AS playing_in_behind,
+
+    -- (COALESCE(SUM(CASE WHEN event_type = 'passing_option' AND penalty_area_end IS TRUE AND interplayer_distance_range != 'short' AND interplayer_direction IN ('sideway_right', 'sideway_left') AND player_in_possession_channel_start IN ('wide_left', 'wide_right') AND targeted IS TRUE THEN 1 ELSE 0 END) / 
+    -- NULLIF(SUM(CASE WHEN event_type = 'passing_option' AND penalty_area_end IS TRUE AND interplayer_distance_range != 'short' AND interplayer_direction IN ('sideway_right', 'sideway_left') AND player_in_possession_channel_start IN ('wide_left', 'wide_right') THEN 1 ELSE 0 END), 0), 0)) * 100 AS direct_box_play,
+
+    (COUNT(DISTINCT CASE 
+        WHEN event_type = 'off_ball_run' 
+            AND event_subtype = 'cross_receiver'
+            AND targeted IS TRUE
+        THEN CONCAT(match_id, '-', associated_player_possession_event_id) 
+        ELSE NULL 
+    END) /
+    NULLIF    (COUNT(DISTINCT CASE 
+        WHEN event_type = 'off_ball_run' 
+        THEN CONCAT(match_id, '-', associated_player_possession_event_id) 
+        ELSE NULL 
+    END), 0) * 100)  AS direct_box_play,
+
+    -- (COALESCE(SUM(CASE WHEN third_start IN ('attacking_third') AND event_type = 'player_possession' AND n_passing_options_dangerous_difficult + n_passing_options_not_dangerous_difficult >= 1 AND 
+    -- n_passing_options_not_dangerous_not_difficult + n_passing_options_dangerous_not_difficult >= 1 AND player_targeted_difficult_pass_target IS FALSE THEN 1 ELSE 0 END) /
+    -- NULLIF(SUM(CASE WHEN third_start IN ('attacking_third') AND event_type = 'player_possession' AND n_passing_options_dangerous_difficult + n_passing_options_not_dangerous_difficult >= 1 AND n_passing_options_not_dangerous_not_difficult + n_passing_options_dangerous_not_difficult >= 1 THEN 1 ELSE 0 END), 0), 0)) * 100 AS patient_attacking_third_play,
+
+        (COALESCE(SUM(CASE WHEN third_start IN ('attacking_third') AND event_type = 'player_possession' AND end_type = 'pass' AND player_targeted_difficult_pass_target IS FALSE THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN third_start IN ('attacking_third') AND event_type = 'player_possession' AND end_type = 'pass' THEN 1 ELSE 0 END), 0), 0)) * 100 AS patient_attacking_third_play,
+
+    -- (COALESCE(SUM(CASE WHEN third_start IN ('attacking_third') AND event_type = 'player_possession' AND n_passing_options_dangerous_difficult + n_passing_options_dangerous_not_difficult >= 1 THEN 1 ELSE 0 END) /
+    -- NULLIF(SUM(CASE WHEN third_start IN ('attacking_third') AND event_type = 'player_possession' THEN 1 ELSE 0 END), 0), 0)) * 100 AS dangerous_opportunity_creation,
+
+    (COUNT(DISTINCT CASE 
+        WHEN event_type = 'off_ball_run' 
+            AND dangerous IS TRUE
+            AND third_start = 'attacking_third'
+        THEN CONCAT(match_id, '-', associated_player_possession_event_id) 
+        ELSE NULL 
+    END) /
+    NULLIF    (COUNT(DISTINCT CASE 
+        WHEN event_type = 'off_ball_run' 
+            AND third_start = 'attacking_third'
+        THEN CONCAT(match_id, '-', associated_player_possession_event_id) 
+        ELSE NULL 
+    END), 0) * 100) AS dangerous_opportunity_creation,
+
+    (COALESCE(SUM(CASE WHEN event_type = 'off_ball_run' AND third_start = 'attacking_third' AND dangerous IS TRUE AND received IS TRUE AND lead_to_goal IS TRUE THEN 1 ELSE 0 END) /
+    NULLIF(SUM(CASE WHEN event_type = 'off_ball_run' AND third_start = 'attacking_third' AND dangerous IS TRUE AND targeted IS TRUE THEN 1 ELSE 0 END), 0), 0)) * 100 AS dangerous_opportunity_conversion,
+
+    AVG(CASE WHEN event_type = 'passing_option' THEN passing_option_score ELSE NULL END) AS avg_option_passing_option_score,
+    AVG(CASE WHEN event_type = 'passing_option' AND targeted IS TRUE THEN passing_option_score ELSE NULL END) AS avg_pass_passing_option_score,
+
+    AVG(CASE WHEN event_type = 'passing_option' THEN xpass_completion ELSE NULL END) AS avg_option_xpass_completion,
+    AVG(CASE WHEN event_type = 'passing_option' AND targeted IS TRUE THEN xpass_completion ELSE NULL END) AS avg_pass_xpass_completion,
+
+    AVG(CASE WHEN event_type = 'passing_option' THEN xthreat ELSE NULL END) AS avg_option_xthreat,
+    AVG(CASE WHEN event_type = 'passing_option' AND targeted IS TRUE THEN xthreat ELSE NULL END) AS avg_pass_xthreat,
+
+    CORR(CASE WHEN event_type = 'passing_option' THEN passing_option_score ELSE NULL END, 
+        CASE WHEN event_type = 'passing_option' THEN CAST(targeted AS INT) ELSE NULL END) AS passing_option_score_corr,
+
+    CORR(CASE WHEN event_type = 'passing_option' THEN xpass_completion ELSE NULL END, 
+      CASE WHEN event_type = 'passing_option' THEN CAST(targeted AS INT) ELSE NULL END) AS xpass_completion_corr,
+
+    CORR(CASE WHEN event_type = 'passing_option' THEN xthreat ELSE NULL END, 
+      CASE WHEN event_type = 'passing_option' THEN CAST(targeted AS INT) ELSE NULL END) AS xthreat_corr,
+
+  FROM 
+    ${ref("dynamic_events_ip")}
+    -- analysisteam-cloudsql.dev_and_test_tables.dynamic_events_eng1_23_24
+  GROUP BY
+    team_id,
+    team_shortname,
+    season_id,
+    season_name,
+    competition_id,
+    competition_name,
+    competition_edition_id,
+    competition_edition_name
+),
+
+
+out_of_possession AS (
+  SELECT 
+    opposition_team_id,
+    season_id,
+    season_name,
+    competition_id,
+    competition_name,
+    competition_edition_id,
+    competition_edition_name,
+
+
+    (COALESCE(SUM(CASE WHEN event_type = 'player_possession' AND third_start IN ('middle_third', 'defensive_third') AND (separation_start <= 2 OR separation_end <= 2) THEN 1 ELSE 0 END) /
+    NULLIF(SUM(CASE WHEN event_type = 'player_possession' AND third_start IN ('middle_third', 'defensive_third') THEN 1 ELSE 0 END), 0), 0)) * 100 AS defending_with_intensity,
+
+    (COALESCE(SUM(CASE WHEN event_type = 'player_possession' AND third_start IN ('attacking_third') AND separation_start >= 2 THEN 1 ELSE 0 END) /
+    NULLIF(SUM(CASE WHEN event_type = 'player_possession' THEN 1 ELSE 0 END), 0), 0)) * 100 AS defending_deep,
+
+    -- (COALESCE(SUM(CASE WHEN third_start IN ('attacking_third') AND event_type = 'player_possession' AND n_passing_options_dangerous_difficult + n_passing_options_dangerous_not_difficult >= 1 AND player_targeted_dangerous IS FALSE THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN third_start IN ('attacking_third') AND event_type = 'player_possession' AND n_passing_options_dangerous_difficult + n_passing_options_dangerous_not_difficult >= 1 THEN 1 ELSE 0 END), 0), 0)) * 100 AS dangerous_opportunity_prevention, 
+
+  -- AVG(CASE WHEN event_type = 'player_possession' AND end_type = 'shot' THEN 52.5 - x_end ELSE NULL END) AS dangerous_opportunity_prevention,
+
+    -- (COALESCE(COUNT(DISTINCT CASE WHEN third_start IN ('attacking_third') AND event_type = 'passing_option' AND dangerous IS TRUE THEN match_id || '-' || associated_player_possession_event_id END), 0) / NULLIF(SUM(CASE WHEN third_start IN ('attacking_third') AND event_type = 'player_possession' AND n_off_ball_runs >= 1 THEN 1 ELSE 0 END), 0) * 100) AS dangerous_opportunity_prevention,
+
+    (COUNT(DISTINCT CASE 
+        WHEN event_type = 'off_ball_run' 
+            AND dangerous IS FALSE
+            AND third_start IN ('attacking_third')
+        THEN CONCAT(match_id, '-', associated_player_possession_event_id) 
+        ELSE NULL 
+    END) /
+    NULLIF    (COUNT(DISTINCT CASE 
+        WHEN event_type = 'off_ball_run' 
+              AND third_start IN ('attacking_third')
+        THEN CONCAT(match_id, '-', associated_player_possession_event_id) 
+        ELSE NULL 
+    END), 0) * 100) AS dangerous_opportunity_prevention,
+
+    (COALESCE(SUM(CASE WHEN event_type = 'player_possession' AND third_start IN ('defensive_third') AND (separation_start <= 2 OR separation_end <= 2) AND (pass_outcome = 'unsuccessful' OR end_type IN ('foul_suffered', 'possession_loss')) THEN 1 ELSE 0 END) /
+    NULLIF(SUM(CASE WHEN event_type = 'player_possession' AND third_start IN ('middle_third', 'defensive_third') AND (separation_start <= 2 OR separation_end <= 2) THEN 1 ELSE 0 END), 0), 0)) * 100 AS pressure_height_and_disruption
+
+  FROM 
+    ${ref("dynamic_events_ip")} 
+  GROUP BY
+    opposition_team_id,
+    season_id,
+    season_name,
+    competition_id,
+    competition_name,
+    competition_edition_id,
+    competition_edition_name
+)
+
+SELECT
+  ip.team_id,
+  ip.team_shortname,
+  ip.season_id,
+  ip.season_name,
+  ip.competition_id,
+  ip.competition_name,
+  ip.competition_edition_id,
+  ip.competition_edition_name,
+
+  ip.count_match,
+
+  ip.possession_control,
+  ip.playing_in_behind,
+  ip.direct_box_play,
+  ip.patient_attacking_third_play,
+  ip.dangerous_opportunity_creation,
+  ip.dangerous_opportunity_conversion,
+
+  ip.avg_option_passing_option_score,
+  ip.avg_pass_passing_option_score,
+  ip.avg_option_xpass_completion,
+  ip.avg_pass_xpass_completion,
+  ip.avg_option_xthreat,
+  ip.avg_pass_xthreat,
+
+  ip.passing_option_score_corr,
+  ip.xpass_completion_corr,
+  ip.xthreat_corr,
+
+  oop.defending_with_intensity,
+  oop.defending_deep,
+  oop.dangerous_opportunity_prevention,
+  oop.pressure_height_and_disruption,
+
+  (ip.possession_control - AVG(ip.possession_control) OVER (PARTITION BY ip.competition_edition_id)) / 
+  NULLIF(STDDEV(ip.possession_control) OVER (PARTITION BY ip.competition_edition_id), 0) AS possession_control_zscore,
+
+  (ip.playing_in_behind - AVG(ip.playing_in_behind) OVER (PARTITION BY ip.competition_edition_id)) / 
+  NULLIF(STDDEV(ip.playing_in_behind) OVER (PARTITION BY ip.competition_edition_id), 0) AS playing_in_behind_zscore,
+    
+  (ip.direct_box_play - AVG(ip.direct_box_play) OVER (PARTITION BY ip.competition_edition_id)) / 
+  NULLIF(STDDEV(ip.direct_box_play) OVER (PARTITION BY ip.competition_edition_id), 0) AS direct_box_play_zscore,
+
+  (ip.patient_attacking_third_play - AVG(ip.patient_attacking_third_play) OVER (PARTITION BY ip.competition_edition_id)) / 
+  NULLIF(STDDEV(ip.patient_attacking_third_play) OVER (PARTITION BY ip.competition_edition_id), 0) AS patient_attacking_third_play_zscore,
+
+  (ip.dangerous_opportunity_creation - AVG(ip.dangerous_opportunity_creation) OVER (PARTITION BY ip.competition_edition_id)) / 
+  NULLIF(STDDEV(ip.dangerous_opportunity_creation) OVER (PARTITION BY ip.competition_edition_id), 0) AS dangerous_opportunity_creation_zscore,
+
+  (ip.dangerous_opportunity_conversion - AVG(ip.dangerous_opportunity_conversion) OVER (PARTITION BY ip.competition_edition_id)) / 
+  NULLIF(STDDEV(ip.dangerous_opportunity_conversion) OVER (PARTITION BY ip.competition_edition_id), 0) AS dangerous_opportunity_conversion_zscore,
+
+  (oop.defending_with_intensity - AVG(oop.defending_with_intensity) OVER (PARTITION BY ip.competition_edition_id)) / 
+  NULLIF(STDDEV(oop.defending_with_intensity) OVER (PARTITION BY ip.competition_edition_id), 0) AS defending_with_intensity_zscore,
+
+  (oop.defending_deep - AVG(oop.defending_deep) OVER (PARTITION BY ip.competition_edition_id)) / 
+  NULLIF(STDDEV(oop.defending_deep) OVER (PARTITION BY ip.competition_edition_id), 0) AS defending_deep_zscore,
+
+  (oop.dangerous_opportunity_prevention - AVG(oop.dangerous_opportunity_prevention) OVER (PARTITION BY ip.competition_edition_id)) / 
+  NULLIF(STDDEV(oop.dangerous_opportunity_prevention) OVER (PARTITION BY ip.competition_edition_id), 0) AS dangerous_opportunity_prevention_zscore,
+
+  (oop.pressure_height_and_disruption - AVG(oop.pressure_height_and_disruption) OVER (PARTITION BY ip.competition_edition_id)) / 
+  NULLIF(STDDEV(oop.pressure_height_and_disruption) OVER (PARTITION BY ip.competition_edition_id), 0) AS pressure_height_and_disruption_zscore,
+
+  points.count_match AS points_table_count_match,
+  points.points AS points,
+  points.points / points.count_match AS points_per_match
+
+FROM
+  in_posssesion AS ip
+JOIN 
+  out_of_possession AS oop
+ON 
+  ip.team_id = oop.opposition_team_id
+  AND ip.season_id = oop.season_id
+  AND ip.competition_id = oop.competition_id
+JOIN
+  ${ref("team_points")} AS points
+ON
+  ip.team_id = points.team_id
+  AND ip.season_id = points.season_id
+  AND ip.competition_id = points.competition_id
+WHERE
+   ip.season_id IN (129, 95)
+--   AND ip.competition_id = 1

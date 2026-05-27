@@ -1,0 +1,6 @@
+config {
+  type: "declaration",
+  database: "analysisteam-cloudsql",
+  schema: "dynamic_events_oop",
+  name: "dynamic_events_oop"
+}
