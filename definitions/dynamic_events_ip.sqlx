@@ -6,9 +6,9 @@ config {
     bigquery: {
         clusterBy: ["event_id", "match_id", "team_id", "player_id"]
     },
-    uniqueKey:["event_id", "match_id", "team_id", "player_id"],
+    uniqueKey:["event_id", "match_id"],
     assertions:{
-        uniqueKey: ["event_id", "match_id", "team_id", "player_id"],
+        uniqueKey: ["event_id", "match_id"],
         nonNull: ["event_id", "match_id", "team_id", "player_id"]
     }
 }
