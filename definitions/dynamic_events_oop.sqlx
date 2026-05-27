@@ -43,9 +43,6 @@ SELECT
   --   ELSE 'Other Position'
   -- END AS player_in_possession_position_group,
 
-  -- Addtional match information.
-  CONCAT(match_meta.home_team_name, ' v ',match_meta.away_team_name,' (', match_meta.date_time, ')') AS match_name,
-
   CASE WHEN dynamic_events.team_id = match_meta.home_team_id THEN match_meta.away_team_id ELSE match_meta.home_team_id END AS opposition_team_id
 
 FROM     
