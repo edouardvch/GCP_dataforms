@@ -14,26 +14,26 @@ config {
 }
 
 SELECT
-  dynamic_events.*,    
+  dynamic_events.*,
   filtered_options.event_id AS associated_passing_option,
-  -- If there is a safe simple options during the possession sequence.
-    CASE 
-    WHEN dynamic_events.event_type = 'player_possession' AND 
+
+  CASE
+    WHEN dynamic_events.event_type = 'player_possession' AND
          EXISTS (
-           SELECT 1 
+           SELECT 1
            FROM analysisteam-cloudsql.skillcorner_external_data.dynamic_events AS option_events
-           WHERE option_events.event_type != 'player_possession' 
+           WHERE option_events.event_type != 'player_possession'
              AND option_events.associated_player_possession_event_id = dynamic_events.event_id
              AND option_events.match_id = dynamic_events.match_id
              AND option_events.xpass_completion >= 0.9
              AND option_events.interplayer_direction IN ('sideway_right', 'sideway_left', 'backward')
              AND option_events.interplayer_distance_range != 'long'
          ) THEN TRUE
-    WHEN dynamic_events.event_type != 'player_possession' AND 
+    WHEN dynamic_events.event_type != 'player_possession' AND
          EXISTS (
-           SELECT 1 
+           SELECT 1
            FROM analysisteam-cloudsql.skillcorner_external_data.dynamic_events AS option_events
-           WHERE option_events.event_type != 'player_possession' 
+           WHERE option_events.event_type != 'player_possession'
              AND option_events.associated_player_possession_event_id = dynamic_events.associated_player_possession_event_id
              AND option_events.match_id = dynamic_events.match_id
              AND option_events.xpass_completion >= 0.9
@@ -41,15 +41,14 @@ SELECT
              AND option_events.interplayer_distance_range != 'long'
          ) THEN TRUE
     ELSE FALSE
-  END AS safe_simple_option_avaiable_in_possession, 
+  END AS safe_simple_option_avaiable_in_possession,
 
-  -- If the player in possession targrted a safe simple option.
-  CASE 
-    WHEN dynamic_events.event_type = 'player_possession' AND 
+  CASE
+    WHEN dynamic_events.event_type = 'player_possession' AND
          EXISTS (
-           SELECT 1 
+           SELECT 1
            FROM analysisteam-cloudsql.skillcorner_external_data.dynamic_events AS passing_events
-           WHERE passing_events.event_type = 'passing_option' 
+           WHERE passing_events.event_type = 'passing_option'
              AND passing_events.associated_player_possession_event_id = dynamic_events.event_id
              AND passing_events.match_id = dynamic_events.match_id
              AND passing_events.xpass_completion >= 0.9
@@ -57,20 +56,15 @@ SELECT
              AND passing_events.interplayer_distance_range != 'long'
              AND passing_events.targeted IS TRUE
          ) THEN TRUE
-    WHEN dynamic_events.event_type != 'player_possession' THEN NULL 
+    WHEN dynamic_events.event_type != 'player_possession' THEN NULL
     ELSE FALSE
-  END AS targeted_safe_simple_option, 
+  END AS targeted_safe_simple_option
 
-  CASE WHEN dynamic_events.team_id = match_meta.home_team_id THEN match_meta.away_team_id ELSE match_meta.home_team_id END AS opposition_team_id
-
-FROM     
-  ${ref("dynamic_events")} AS dynamic_events 
-JOIN 
-  ${ref("match_metadata")} AS match_meta
-ON dynamic_events.match_id = match_meta.match_id
-LEFT JOIN 
+FROM
+  ${ref("dynamic_events")} AS dynamic_events
+LEFT JOIN
   ${ref("dynamic_events")} AS filtered_options
-ON 
+ON
   dynamic_events.match_id = filtered_options.match_id
   AND dynamic_events.player_id = filtered_options.player_id
   AND dynamic_events.event_type = 'player_possession'
