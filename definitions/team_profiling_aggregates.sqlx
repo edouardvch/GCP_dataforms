@@ -14,16 +14,16 @@ config {
 }
 
 WITH in_posssesion AS (
-  SELECT 
+  SELECT
     team_id,
-    team_shortname,
+    ANY_VALUE(team_shortname) AS team_shortname,
     season_id,
-    season_name,
+    ANY_VALUE(season_name) AS season_name,
     competition_id,
-    competition_name,
+    ANY_VALUE(competition_name) AS competition_name,
     competition_edition_id,
-    competition_edition_name,
-    
+    ANY_VALUE(competition_edition_name) AS competition_edition_name,
+
     COUNT(DISTINCT match_id) AS count_match,
  
     (COALESCE(SUM(CASE WHEN third_start IN ('middle_third', 'defensive_third') AND event_type = 'player_possession' AND end_type = 'pass' AND player_targeted_difficult_pass_target IS FALSE THEN 1 ELSE 0 END) / NULLIF(SUM(CASE WHEN third_start IN ('middle_third', 'defensive_third') AND event_type = 'player_possession' AND end_type = 'pass' THEN 1 ELSE 0 END), 0), 0)) * 100 AS possession_control,
@@ -105,30 +105,25 @@ WITH in_posssesion AS (
     CORR(CASE WHEN event_type = 'passing_option' THEN xthreat ELSE NULL END, 
       CASE WHEN event_type = 'passing_option' THEN CAST(targeted AS INT) ELSE NULL END) AS xthreat_corr,
 
-  FROM 
+  FROM
     ${ref("dynamic_events_ip")}
-    -- analysisteam-cloudsql.dev_and_test_tables.dynamic_events_eng1_23_24
   GROUP BY
     team_id,
-    team_shortname,
     season_id,
-    season_name,
     competition_id,
-    competition_name,
-    competition_edition_id,
-    competition_edition_name
+    competition_edition_id
 ),
 
 
 out_of_possession AS (
-  SELECT 
+  SELECT
     opposition_team_id,
     season_id,
-    season_name,
+    ANY_VALUE(season_name) AS season_name,
     competition_id,
-    competition_name,
+    ANY_VALUE(competition_name) AS competition_name,
     competition_edition_id,
-    competition_edition_name,
+    ANY_VALUE(competition_edition_name) AS competition_edition_name,
 
 
     (COALESCE(SUM(CASE WHEN event_type = 'player_possession' AND third_start IN ('middle_third', 'defensive_third') AND (separation_start <= 2 OR separation_end <= 2) THEN 1 ELSE 0 END) /
@@ -160,16 +155,13 @@ out_of_possession AS (
     (COALESCE(SUM(CASE WHEN event_type = 'player_possession' AND third_start IN ('defensive_third') AND (separation_start <= 2 OR separation_end <= 2) AND (pass_outcome = 'unsuccessful' OR end_type IN ('foul_suffered', 'possession_loss')) THEN 1 ELSE 0 END) /
     NULLIF(SUM(CASE WHEN event_type = 'player_possession' AND third_start IN ('middle_third', 'defensive_third') AND (separation_start <= 2 OR separation_end <= 2) THEN 1 ELSE 0 END), 0), 0)) * 100 AS pressure_height_and_disruption
 
-  FROM 
-    ${ref("dynamic_events_ip")} 
+  FROM
+    ${ref("dynamic_events_ip")}
   GROUP BY
     opposition_team_id,
     season_id,
-    season_name,
     competition_id,
-    competition_name,
-    competition_edition_id,
-    competition_edition_name
+    competition_edition_id
 )
 
 SELECT
