@@ -1,0 +1,6 @@
+config {
+  type: "declaration",
+  database: "analysisteam-cloudsql",
+  schema: "dynamic_events_sandbox",
+  name: "phases_of_play"
+}

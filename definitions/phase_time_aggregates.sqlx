@@ -1,0 +1,47 @@
+config {
+    type: "table",
+    schema: "analysis_team_sandbox",
+    name: "team_phase_time_aggregates",
+    description: "",
+    bigquery: {
+        clusterBy: ["team_in_possession_id"]
+    },
+    uniqueKey:["team_in_possession_id"],
+    assertions:{
+        uniqueKey: ["team_in_possession_id"],
+        nonNull: ["team_in_possession_id"]
+    }
+}
+
+WITH phase_times AS (
+  SELECT 
+    team_in_possession_id,
+    team_in_possession_shortname,
+    SUM(duration) AS total_phase_time,
+    SUM(CASE WHEN team_in_possession_phase_type = 'build_up' THEN duration ELSE NULL END) AS build_up_time, 
+    SUM(CASE WHEN team_in_possession_phase_type = 'create' THEN duration ELSE NULL END) AS create_time, 
+    SUM(CASE WHEN team_in_possession_phase_type = 'finish' THEN duration ELSE NULL END) AS finish_time, 
+    SUM(CASE WHEN team_in_possession_phase_type = 'transition' THEN duration ELSE NULL END) AS transition_time, 
+    SUM(CASE WHEN team_in_possession_phase_type = 'quick_break' THEN duration ELSE NULL END) AS quick_break_time, 
+    SUM(CASE WHEN team_in_possession_phase_type = 'direct' THEN duration ELSE NULL END) AS direct_time, 
+    SUM(CASE WHEN team_in_possession_phase_type = 'chaotic' THEN duration ELSE NULL END) AS chaotic_time, 
+    SUM(CASE WHEN team_in_possession_phase_type = 'set_play' THEN duration ELSE NULL END) AS set_play_time, 
+  FROM 
+    ${ref("phases_of_play")}
+  GROUP BY
+    team_in_possession_id,
+    team_in_possession_shortname
+)
+
+SELECT
+  *,
+  (build_up_time / total_phase_time) * 100 AS build_up_time_percentage,
+    (create_time / total_phase_time) * 100 AS create_time_percentage,
+  (finish_time / total_phase_time) * 100 AS finish_time_percentage,
+  (transition_time / total_phase_time) * 100 AS transition_time_percentage,
+  (quick_break_time / total_phase_time) * 100 AS quick_break_time_percentage,
+  (direct_time / total_phase_time) * 100 AS direct_time_percentage,
+  (chaotic_time / total_phase_time) * 100 AS chaotic_time_percentage,
+  (set_play_time / total_phase_time) * 100 AS set_play_time_percentage,
+FROM
+  phase_times

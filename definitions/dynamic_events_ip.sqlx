@@ -2,7 +2,7 @@ config {
     type: "table",
     schema: "dynamic_events_ip",
     name: "dynamic_events_ip",
-    description: "",
+    description: "Dynamic events filtered on in possession events",
     bigquery: {
         clusterBy: ["event_id", "match_id", "team_id", "player_id"]
     },
