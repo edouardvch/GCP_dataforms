@@ -1,0 +1,244 @@
+config {
+    type: "table",
+    schema: "csm_team_sandbox",
+    name: "inside_outside_shape_midfielders_analysis",
+    bigquery: {
+        clusterBy: ["competition_edition_id", "player_id"]
+    },
+    uniqueKey:["player_id"],
+    assertions:{
+        uniqueKey:["player_id"],
+        nonNull: ["player_id", "competition_edition_id"]
+    }
+}
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 1. Raw events for relevant competitions only
+-- ─────────────────────────────────────────────────────────────────────────────
+WITH base_events AS (
+  SELECT
+    de.*,
+    CASE 
+      WHEN player_position_group IN ('Defensive Midfield') THEN 'Midfield'
+      ELSE player_position_group 
+    END AS player_position_group_2
+  FROM ${ref("dynamic_events_sandbox", "dynamic_events")} AS de
+  WHERE de.competition_edition_id IN (
+      1198, 1199, 1217, 1232, 1233,
+      1230, 1194, 1390, 1169, 1393, 1265,
+      1189, 1096,
+      1091,
+
+      1402,1093,1369,1094,1370,1063,1216,890,
+      895,906,900,915,909
+    )
+),
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 2. Passing options enriched with whether the ball-carrier was
+--    inside the defensive shape at the END of their possession
+-- ─────────────────────────────────────────────────────────────────────────────
+enriched_po AS (
+  SELECT
+    po.*,
+    pp.inside_defensive_shape_end AS player_in_possession_inside_defensive_shape_end
+  FROM base_events AS po
+  JOIN base_events AS pp
+    ON  po.match_id                              = pp.match_id
+    AND po.associated_player_possession_event_id = pp.event_id
+  WHERE po.event_type = 'passing_option'
+    AND pp.event_type = 'player_possession'
+),
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 3. Player possessions enriched with whether the previous ball-carrier
+--    was inside the defensive shape at the END of their possession
+-- ─────────────────────────────────────────────────────────────────────────────
+enriched_pp AS (
+  SELECT
+    pp.*,
+    pp_received_from.inside_defensive_shape_end AS pass_received_from_inside_defensive_shape_end
+  FROM base_events AS pp
+  JOIN base_events AS pp_received_from
+    ON  pp_received_from.match_id                    = pp.match_id
+    AND pp_received_from.player_targeted_id          = pp.player_id
+    AND pp_received_from.player_targeted_x_reception = pp.x_start
+    AND pp_received_from.player_targeted_y_reception = pp.y_start
+    AND pp_received_from.pass_distance               = pp.pass_distance_received
+    AND pp_received_from.pass_angle                  = pp.pass_angle_received
+  WHERE pp.event_type              = 'player_possession'
+    AND pp_received_from.event_type = 'player_possession'
+),
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 4. Per-match / per-player aggregations
+-- ─────────────────────────────────────────────────────────────────────────────
+match_stats AS (
+  SELECT
+    p.player_id,
+    p.player_name,
+    p.team_shortname,
+    p.player_position_group_2,
+    p.match_id,
+    p.competition_edition_id,
+
+    COUNT(DISTINCT
+      CONCAT(CAST(p.match_id AS STRING), '_', CAST(p.phase_index AS STRING))
+    ) AS create_phase,
+
+    -- PASSING OPTIONS: inside opponent shape
+    COUNT(DISTINCT IF(
+        p.event_type                                           = 'passing_option'
+        AND p.team_in_possession_phase_type                     = 'create'
+        AND p.inside_defensive_shape_end                      = TRUE
+        AND p.interplayer_direction                          != 'backward'
+        AND p.interplayer_distance_range                     != 'long'
+        AND p.player_in_possession_inside_defensive_shape_end = FALSE,
+        CONCAT(CAST(p.match_id AS STRING), '_', CAST(p.phase_index AS STRING)),
+        NULL
+    )) AS option_inside_opponent_shape,
+
+    -- POSSESSIONS: inside opponent shape
+    COUNT(DISTINCT IF(
+        p.event_type                                          = 'player_possession'
+        AND p.team_in_possession_phase_type                     = 'create'
+        AND p.inside_defensive_shape_start                   = TRUE
+        AND p.pass_direction_received                        != 'backward'
+        AND p.pass_range_received                            != 'long'
+        AND p.pass_received_from_inside_defensive_shape_end  = FALSE,
+        CONCAT(CAST(p.match_id AS STRING), '_', CAST(p.phase_index AS STRING)),
+        NULL
+    )) AS possession_inside_opponent_shape,
+
+    -- POSSESSIONS inside shape → progressed to finish
+    COUNT(DISTINCT IF(
+        p.event_type                                          = 'player_possession'
+        AND p.team_in_possession_phase_type                     = 'create'
+        AND p.inside_defensive_shape_start                   = TRUE
+        AND p.pass_direction_received                        != 'backward'
+        AND p.pass_range_received                            != 'long'
+        AND p.pass_received_from_inside_defensive_shape_end  = FALSE
+        AND p.current_team_in_possession_next_phase_type     = 'finish'
+        AND (
+          p.pass_ahead = TRUE
+          OR (p.distance_covered >= 3 AND p.trajectory_direction = 'forward')
+        ),
+        CONCAT(CAST(p.match_id AS STRING), '_', CAST(p.phase_index AS STRING)),
+        NULL
+    )) AS possession_inside_opponent_shape_and_progressed_to_finish,
+
+    -- PASSING OPTIONS: between centre-backs
+    COUNT(DISTINCT IF(
+        p.event_type                                           = 'passing_option'
+        AND p.team_in_possession_phase_type                     = 'create'
+        AND p.inside_defensive_shape_end                      = FALSE
+        AND p.interplayer_direction                          != 'forward'
+        AND p.interplayer_distance_range                     != 'long'
+        AND p.player_in_possession_inside_defensive_shape_end = FALSE,
+        CONCAT(CAST(p.match_id AS STRING), '_', CAST(p.phase_index AS STRING)),
+        NULL
+    )) AS option_between_center_backs,
+
+    -- POSSESSIONS: between centre-backs
+    COUNT(DISTINCT IF(
+        p.event_type                                          = 'player_possession'
+        AND p.team_in_possession_phase_type                     = 'create'
+        AND p.inside_defensive_shape_start                   = FALSE
+        AND p.pass_direction_received                        != 'forward'
+        AND p.pass_range_received                            != 'long'
+        AND p.pass_received_from_inside_defensive_shape_end  = FALSE,
+        CONCAT(CAST(p.match_id AS STRING), '_', CAST(p.phase_index AS STRING)),
+        NULL
+    )) AS possession_between_center_backs,
+
+    -- POSSESSIONS between CBs → progressed to finish
+    COUNT(DISTINCT IF(
+        p.event_type                                          = 'player_possession'
+        AND p.team_in_possession_phase_type                     = 'create'
+        AND p.inside_defensive_shape_start                   = FALSE
+        AND p.pass_direction_received                        != 'forward'
+        AND p.pass_range_received                            != 'long'
+        AND p.pass_received_from_inside_defensive_shape_end  = FALSE
+        AND p.current_team_in_possession_next_phase_type     = 'finish'
+        AND (
+          p.pass_ahead = TRUE
+          OR (p.distance_covered >= 3 AND p.trajectory_direction = 'forward')
+        ),
+        CONCAT(CAST(p.match_id AS STRING), '_', CAST(p.phase_index AS STRING)),
+        NULL
+    )) AS possession_between_center_backs_and_progressed_to_finish
+
+  FROM (
+    -- player_possession rows
+    SELECT
+      event_type, player_id, player_name, team_shortname,
+      player_position_group_2, match_id, phase_index,
+      competition_edition_id,
+      team_in_possession_phase_type,
+      inside_defensive_shape_end, inside_defensive_shape_start,
+      interplayer_direction, interplayer_distance_range,
+      pass_direction_received, pass_range_received,
+      pass_received_from_inside_defensive_shape_end,
+      current_team_in_possession_next_phase_type,
+      pass_ahead, distance_covered, trajectory_direction,
+      NULL AS player_in_possession_inside_defensive_shape_end
+    FROM enriched_pp
+
+    UNION ALL
+
+    -- passing_option rows
+    SELECT
+      event_type, player_id, player_name, team_shortname,
+      player_position_group_2, match_id, phase_index,
+      competition_edition_id,
+      team_in_possession_phase_type,
+      inside_defensive_shape_end, inside_defensive_shape_start,
+      interplayer_direction, interplayer_distance_range,
+      NULL AS pass_direction_received, NULL AS pass_range_received,
+      NULL AS pass_received_from_inside_defensive_shape_end,
+      NULL AS current_team_in_possession_next_phase_type,
+      NULL AS pass_ahead, NULL AS distance_covered, NULL AS trajectory_direction,
+      player_in_possession_inside_defensive_shape_end
+    FROM enriched_po
+  ) AS p
+  GROUP BY
+    p.player_id, p.player_name, p.team_shortname,
+    p.player_position_group_2, p.match_id, p.competition_edition_id
+)
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 5. Final aggregation — minutes joined here, rates computed per 30 TIP
+-- ─────────────────────────────────────────────────────────────────────────────
+SELECT
+  ms.player_id,
+  ms.player_name,
+  ms.team_shortname,
+  ms.player_position_group_2 AS player_position_group,
+  ms.competition_edition_id,
+  COUNT(DISTINCT ms.match_id)                                                                       AS count_match,
+
+  SAFE_DIVIDE(SUM(ms.option_inside_opponent_shape),              SUM(perf.playing_time_total_minutes_tip)) * 30  AS count_option_inside_opponent_shape_per_30_tip,
+  SAFE_DIVIDE(SUM(ms.option_between_center_backs),               SUM(perf.playing_time_total_minutes_tip)) * 30  AS count_option_between_center_backs_per_30_tip,
+
+  SAFE_DIVIDE(SUM(ms.possession_inside_opponent_shape),          SUM(perf.playing_time_total_minutes_tip)) * 30  AS count_possession_inside_opponent_shape_per_30_tip,
+  SAFE_DIVIDE(SUM(ms.possession_inside_opponent_shape_and_progressed_to_finish), SUM(perf.playing_time_total_minutes_tip)) * 30
+                                                                                                                 AS count_possession_inside_opponent_shape_and_progressed_to_finish_per_30_tip,
+  SAFE_DIVIDE(SUM(ms.possession_inside_opponent_shape),          SUM(ms.option_inside_opponent_shape))          * 100 AS option_inside_opponent_shape_receive_percentage,
+  SAFE_DIVIDE(SUM(ms.possession_inside_opponent_shape_and_progressed_to_finish), SUM(ms.possession_inside_opponent_shape)) * 100
+                                                                                                                 AS possession_inside_opponent_shape_progress_to_finish_percentage,
+
+  SAFE_DIVIDE(SUM(ms.possession_between_center_backs),           SUM(perf.playing_time_total_minutes_tip)) * 30  AS count_possession_between_center_backs_per_30_tip,
+  SAFE_DIVIDE(SUM(ms.possession_between_center_backs_and_progressed_to_finish), SUM(perf.playing_time_total_minutes_tip)) * 30
+                                                                                                                 AS count_possession_between_center_backs_and_progressed_to_finish_per_30_tip,
+  SAFE_DIVIDE(SUM(ms.possession_between_center_backs),           SUM(ms.option_between_center_backs))           * 100 AS option_between_center_backs_receive_percentage,
+  SAFE_DIVIDE(SUM(ms.possession_between_center_backs_and_progressed_to_finish), SUM(ms.possession_between_center_backs)) * 100
+                                                                                                                 AS possession_between_center_backs_progress_to_finish_percentage
+
+FROM match_stats AS ms
+JOIN ${ref("player_performances")} AS perf
+  ON  ms.player_id = perf.player_id
+  AND ms.match_id  = perf.match_id
+WHERE perf.playing_time_total_minutes_played >= 45
+AND ms.player_position_group_2 = 'Midfield'
+GROUP BY ms.player_id, ms.player_name, ms.team_shortname, ms.player_position_group_2, ms.competition_edition_id
+HAVING COUNT(DISTINCT ms.match_id) >= 5

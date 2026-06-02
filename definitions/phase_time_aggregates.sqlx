@@ -27,7 +27,7 @@ WITH phase_times AS (
     SUM(CASE WHEN team_in_possession_phase_type = 'chaotic' THEN duration ELSE NULL END) AS chaotic_time, 
     SUM(CASE WHEN team_in_possession_phase_type = 'set_play' THEN duration ELSE NULL END) AS set_play_time, 
   FROM 
-    ${ref("phases_of_play")}
+    ${ref("events", "phases_of_play")}
   GROUP BY
     team_in_possession_id
 )

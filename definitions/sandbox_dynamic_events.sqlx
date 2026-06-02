@@ -1,0 +1,102 @@
+config {
+    type: "table",
+    schema: "dynamic_events_sandbox",
+    name: "dynamic_events",
+    bigquery: {
+        clusterBy: ["competition_id", "competition_edition_id", "event_type", "event_subtype"]
+    },
+    uniqueKey:["event_id"],
+    assertions:{
+        nonNull: ["event_id", "competition_id", "competition_edition_id"]
+    }
+}
+
+WITH modified_events AS (
+    SELECT
+      dynamic_events.*,    
+      filtered_options.event_id AS associated_passing_option,
+      engaged_possessions.carry AS engaged_possession_carry,
+      engaged_possessions.distance_covered AS engaged_possession_distance_covered,
+      engaged_possessions.duration AS engaged_possession_duration,
+      engaged_possessions.trajectory_direction AS engaged_possession_trajectory_direction,
+      
+      engaged_possessions.end_type AS engaged_possession_end_type,
+      engaged_possessions.pass_distance AS engaged_possession_pass_distance,
+      engaged_possessions.pass_range AS engaged_possession_pass_range,
+      engaged_possessions.pass_angle AS engaged_possession_pass_angle,
+      engaged_possessions.pass_direction AS engaged_possession_pass_direction,
+
+      engaged_possessions.pass_distance_received AS engaged_possession_pass_distance_received,
+      engaged_possessions.pass_range_received AS engaged_possession_pass_range_received,
+      engaged_possessions.pass_angle_received AS engaged_possession_pass_angle_received,
+      engaged_possessions.pass_direction_received AS engaged_possession_pass_direction_received,
+
+      -- Higher level positional group.
+      CASE 
+        WHEN dynamic_events.player_position IN ('GK') THEN 'Goalkeeper'
+        WHEN dynamic_events.player_position IN ('LCB', 'CB', 'RCB') THEN 'Central Defender'
+        WHEN dynamic_events.player_position IN ('LWB', 'LB') THEN 'Left Full Back'
+        WHEN dynamic_events.player_position IN ('RWB', 'RB') THEN 'Right Full Back'
+        WHEN dynamic_events.player_position IN ('LDM', 'DM', 'RDM') THEN 'Defensive Midfield'
+        WHEN dynamic_events.player_position IN ('LM', 'AM', 'RM') THEN 'Midfield'
+        WHEN dynamic_events.player_position IN ('LW', 'LF') THEN 'Left Wide Attacker'
+        WHEN dynamic_events.player_position IN ('RW', 'RF') THEN 'Right Wide Attacker'
+        WHEN dynamic_events.player_position IN ('CF') THEN 'Center Forward'
+        ELSE 'Other Position'
+      END AS player_position_group,
+
+      -- Higher level positional group (player in possession).
+      CASE 
+        WHEN dynamic_events.player_in_possession_position IN ('GK') THEN 'Goalkeeper'
+        WHEN dynamic_events.player_in_possession_position IN ('LCB', 'CB', 'RCB') THEN 'Central Defender'
+        WHEN dynamic_events.player_in_possession_position IN ('LWB', 'LB') THEN 'Left Full Back'
+        WHEN dynamic_events.player_in_possession_position IN ('RWB', 'RB') THEN 'Right Full Back'
+        WHEN dynamic_events.player_in_possession_position IN ('LDM', 'DM', 'RDM') THEN 'Defensive Midfield'
+        WHEN dynamic_events.player_in_possession_position IN ('LM', 'AM', 'RM') THEN 'Midfield'
+        WHEN dynamic_events.player_in_possession_position IN ('LW', 'LF') THEN 'Left Wide Attacker'
+        WHEN dynamic_events.player_in_possession_position IN ('RW', 'RF') THEN 'Right Wide Attacker'
+        WHEN dynamic_events.player_in_possession_position IN ('CF') THEN 'Center Forward'
+        ELSE 'Other Position'
+      END AS player_in_possession_position_group,
+
+      -- Additional match information.
+      CAST(match_meta.competition_edition_id AS int64) AS competition_edition_id,
+      match_meta.competition_edition_name,
+      match_meta.competition_id,
+      match_meta.competition_name,
+      match_meta.season_id,
+      match_meta.season_name,
+      CONCAT(match_meta.home_team_name, ' v ',match_meta.away_team_name,' (', match_meta.date_time, ')') AS match_name,
+
+      CASE WHEN dynamic_events.team_id = match_meta.home_team_id THEN match_meta.away_team_id ELSE match_meta.home_team_id END AS opposition_team_id
+
+    FROM     
+      ${ref("events", "dynamic_events")} AS dynamic_events 
+    JOIN 
+      ${ref("match_metadata")} AS match_meta  
+    ON dynamic_events.match_id = match_meta.match_id
+    LEFT JOIN 
+      ${ref("events", "dynamic_events")} AS filtered_options
+    ON 
+      dynamic_events.match_id = filtered_options.match_id
+      AND dynamic_events.player_id = filtered_options.player_id
+      AND dynamic_events.event_type = 'player_possession'
+      AND dynamic_events.start_type = 'pass_reception'
+      AND filtered_options.event_type = 'passing_option'
+      AND filtered_options.targeted = TRUE
+      AND dynamic_events.pass_distance_received = filtered_options.pass_distance
+      AND dynamic_events.pass_angle_received = filtered_options.pass_angle
+      AND dynamic_events.frame_start > filtered_options.frame_start
+      AND dynamic_events.frame_start - filtered_options.frame_end <= 60
+    LEFT JOIN 
+      ${ref("events", "dynamic_events")} AS engaged_possessions
+    ON 
+      dynamic_events.match_id = engaged_possessions.match_id
+      AND dynamic_events.associated_player_possession_event_id = engaged_possessions.event_id
+      AND dynamic_events.event_type = 'on_ball_engagement'
+      AND engaged_possessions.event_type = 'player_possession'
+    WHERE
+      (match_meta.season_name IN ('2024/2025', '2025', '2024', '2025/2026', '2026')) OR (match_meta.competition_edition_id IN (419,546,390,1321,168,198,360,235))
+  )
+  
+SELECT * FROM modified_events

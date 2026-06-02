@@ -17,6 +17,6 @@ SELECT
   dynamic_events.*
 
 FROM
-  ${ref("dynamic_events")} AS dynamic_events
+  ${ref("events", "dynamic_events")} AS dynamic_events
 
 WHERE event_type = 'on_ball_engagement'

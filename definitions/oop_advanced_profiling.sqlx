@@ -1,0 +1,273 @@
+config {
+    type: "table",
+    schema: "csm_team_sandbox",
+    name: "oop_advanced_profiling",
+    description: "",
+    bigquery: {
+        clusterBy: ["competition_edition_id", "player_id"]
+    },
+    uniqueKey:["player_id"],
+    assertions:{
+        uniqueKey: ["player_id"],
+        nonNull: ["competition_edition_id", "player_id"]
+    }
+}
+ 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 1. Raw events for relevant competitions, with broad position grouping added
+-- ─────────────────────────────────────────────────────────────────────────────
+WITH base_events AS (
+  SELECT
+    de.*,
+    CASE
+      WHEN de.player_position IN ('GK')                         THEN 'Goalkeeper'
+      WHEN de.player_position IN ('LCB', 'CB', 'RCB')           THEN 'Central Defender'
+      WHEN de.player_position IN ('LWB', 'LB')                  THEN 'Left Full Back'
+      WHEN de.player_position IN ('RWB', 'RB')                  THEN 'Right Full Back'
+      WHEN de.player_position IN ('LDM', 'DM', 'RDM',
+                                  'LM',  'AM', 'RM')            THEN 'Midfield'
+      WHEN de.player_position IN ('LW', 'LF')                   THEN 'Left Wide Attacker'
+      WHEN de.player_position IN ('RW', 'RF')                   THEN 'Right Wide Attacker'
+      WHEN de.player_position IN ('CF')                         THEN 'Center Forward'
+      ELSE                                                           'Other Position'
+    END AS player_position_group_2
+  FROM ${ref("dynamic_events_sandbox", "dynamic_events")} AS de
+  WHERE de.competition_edition_id IN (
+    1198, 1199, 1217, 1232, 1233,
+    1230, 1194, 1390, 1169, 1393, 1265,
+    1189,1096
+  )
+),
+ 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 2. Enrich each pass reception (player_possession) with attributes from the
+--    passing_option that targeted this player immediately before reception.
+-- ─────────────────────────────────────────────────────────────────────────────
+option_enriched_events AS (
+  SELECT
+    recv.*,
+    CONCAT(
+      opt.furthest_line_break_type, '_', opt.furthest_line_break
+    )                                               AS line_break_to_receive,
+    CASE
+      WHEN opt.inside_defensive_shape_end = FALSE
+       AND opt.interplayer_direction != 'forward'   THEN TRUE
+      ELSE FALSE
+    END                                             AS drop_between_to_receive,
+    opt.associated_off_ball_run_subtype             AS off_ball_run_made_to_receive,
+    opt.dangerous                                   AS dangerous_option_made_to_receive,
+    recv.x_start - opt.player_in_possession_x_end  AS pass_received_progression_distance
+  FROM base_events AS recv
+  LEFT JOIN base_events AS opt
+    ON  recv.match_id                    = opt.match_id
+    AND recv.player_id                   = opt.player_id
+    AND recv.event_type                  = 'player_possession'
+    AND recv.start_type                  = 'pass_reception'
+    AND opt.event_type                   = 'passing_option'
+    AND opt.targeted                     = TRUE
+    AND recv.pass_distance_received      = opt.pass_distance
+    AND recv.pass_angle_received         = opt.pass_angle
+    AND recv.frame_start                 > opt.frame_start
+    AND recv.frame_start - opt.frame_end <= 60
+),
+ 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 3. Enrich each on_ball_engagement with attributes from the player_possession
+--    it was associated with (sourced from the enriched possession CTE above).
+-- ─────────────────────────────────────────────────────────────────────────────
+obe_enriched_events AS (
+  SELECT
+    obe.*,
+    poss.line_break_to_receive              AS engaged_possession_line_break_to_receive,
+    poss.off_ball_run_made_to_receive       AS engaged_possession_off_ball_run_made_to_receive,
+    poss.dangerous_option_made_to_receive   AS engaged_possession_dangerous_option_made_to_receive,
+    poss.pass_received_progression_distance AS engaged_possession_pass_received_progression_distance,
+    (poss.x_end >= poss.x_start + 3)       AS engaged_possession_progressed_3_meters,
+    poss.organised_defense                  AS engaged_possession_organised_defence
+  FROM base_events AS obe
+  LEFT JOIN option_enriched_events AS poss
+    ON  obe.match_id                              = poss.match_id
+    AND obe.associated_player_possession_event_id = poss.event_id
+    AND obe.event_type                            = 'on_ball_engagement'  -- left side filter
+    AND poss.event_type                           = 'player_possession'   -- right side filter
+),
+ 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 4. Per-match / per-player raw counts — midfielders only.
+--    playing_time_total_minutes_otip lives in the performances table and is
+--    aggregated in the final SELECT after the JOIN.
+-- ─────────────────────────────────────────────────────────────────────────────
+match_stats AS (
+  SELECT
+    match_id,
+    player_id,
+    player_name,
+    team_id,
+    team_shortname,
+    player_position_group_2,
+    competition_edition_id,
+ 
+    -- ── General ──────────────────────────────────────────────────────────────
+    SUM(CASE WHEN event_type = 'on_ball_engagement' THEN 1 ELSE 0 END)
+      AS count_on_ball_engagements,
+ 
+    -- ── Pressing ─────────────────────────────────────────────────────────────
+    SUM(CASE WHEN event_subtype = 'pressing' THEN 1 ELSE 0 END)
+      AS count_pressing_engagements,
+ 
+    SUM(CASE
+      WHEN event_subtype = 'pressing'
+       AND index_in_pressing_chain = 1
+       AND team_out_of_possession_phase_type = 'high_block'              THEN 1 ELSE 0 END)
+      AS count_initiate_press,
+ 
+    -- Midfielder who forces a line-breaking pass to be played (press #6 role)
+    SUM(CASE
+      WHEN (
+        event_subtype IN ('pressing', 'recovery_press')
+        AND team_out_of_possession_phase_type IN ('high_block', 'medium_block')
+        AND pressing_chain IS TRUE
+        AND engaged_possession_line_break_to_receive IN ('through_first', 'through_second_last')
+      ) OR (
+        event_type = 'on_ball_engagement'
+        AND team_out_of_possession_phase_type = 'high_block'
+        AND index_in_pressing_chain > 1
+        AND engaged_possession_pass_received_progression_distance >= 5
+      )                                                                   THEN 1 ELSE 0 END)
+      AS count_press_number_6,
+ 
+    SUM(CASE
+      WHEN event_subtype IN ('pressing', 'recovery_press')
+       AND consecutive_on_ball_engagements IS TRUE
+       AND speed_avg >= 15                                                
+       AND team_out_of_possession_phase_type IN ('high_block', 'medium_block') THEN 1 ELSE 0 END)
+      AS count_intense_double_press,
+ 
+    -- ── Between the lines ────────────────────────────────────────────────────
+    SUM(CASE
+      WHEN event_type = 'on_ball_engagement'
+       AND engaged_possession_line_break_to_receive IN (
+             'through_second_last', 'through_first',
+             'around_second_last',  'around_first')
+       AND team_out_of_possession_phase_type IN ('low_block', 'medium_block') THEN 1 ELSE 0 END)
+      AS count_engagements_on_player_between_lines,
+ 
+    SUM(CASE
+      WHEN event_type = 'on_ball_engagement'
+       AND affected_line_break IN ('second_last', 'first')
+       AND team_out_of_possession_phase_type IN ('low_block', 'medium_block') THEN 1 ELSE 0 END)
+      AS count_block_passes_to_player_between_lines,
+ 
+    -- ── Defending progressive play ───────────────────────────────────────────
+    SUM(CASE
+      WHEN event_subtype = 'counter_press'
+       AND team_out_of_possession_phase_type IN ('high_block', 'medium_block') THEN 1 ELSE 0 END)
+      AS count_counter_press_engagements,
+ 
+    -- Progression-threat predicate shared by the two metrics below:
+    --   (a) forward pass with ≥5m progression while disorganised
+    --   (b) attacker made a dangerous off-ball run to receive
+    --   (c) ball-carrier progressed ≥3m at pace
+    --
+    -- goal_side_start IS FALSE → defender is recovering (behind the ball)
+    SUM(CASE
+      WHEN event_type = 'on_ball_engagement'
+       AND team_out_of_possession_phase_type NOT IN ('low_block', 'defending_quick_break')
+       AND (
+         (engaged_possession_trajectory_direction = 'forward'
+          AND engaged_possession_pass_received_progression_distance >= 5
+          AND engaged_possession_organised_defence = FALSE)
+         OR engaged_possession_off_ball_run_made_to_receive IN
+              ('behind', 'run_ahead_of_the_ball', 'support', 'overlap', 'underlap')
+         OR (engaged_possession_progressed_3_meters = TRUE
+             AND player_targeted_speed_avg_band IN ('running', 'hsr', 'sprinting'))
+       )
+       AND goal_side_start IS FALSE                                       THEN 1 ELSE 0 END)
+      AS count_recovering_to_stop_progression,
+ 
+    -- goal_side_start IS TRUE → defender is closing down (ahead of the ball)
+    SUM(CASE
+      WHEN event_type = 'on_ball_engagement'
+       AND team_out_of_possession_phase_type NOT IN ('low_block', 'defending_quick_break')
+       AND (
+         (engaged_possession_trajectory_direction = 'forward'
+          AND engaged_possession_pass_received_progression_distance >= 5
+          AND engaged_possession_organised_defence = FALSE)
+         OR engaged_possession_off_ball_run_made_to_receive IN
+              ('behind', 'run_ahead_of_the_ball', 'support', 'overlap', 'underlap')
+         OR (engaged_possession_progressed_3_meters = TRUE
+             AND player_targeted_speed_avg_band IN ('running', 'hsr', 'sprinting'))
+       )
+       AND goal_side_start IS TRUE                                        THEN 1 ELSE 0 END)
+      AS count_closing_down_to_stop_progression,
+ 
+    -- ── Low block / quick break danger ──────────────────────────────────────
+    SUM(CASE
+      WHEN (possession_danger IS TRUE
+            OR engaged_possession_dangerous_option_made_to_receive IS TRUE)
+       AND team_out_of_possession_phase_type IN ('low_block', 'defending_quick_break') THEN 1 ELSE 0 END)
+      AS count_reacting_to_danger
+ 
+  FROM obe_enriched_events
+  WHERE player_position_group_2 = 'Midfield'
+  GROUP BY
+    match_id,
+    player_id,
+    player_name,
+    team_id,
+    team_shortname,
+    player_position_group_2,
+    competition_edition_id
+)
+ 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 5. Aggregate across matches; normalise raw counts to per-30-min-OTIP rates.
+--    SAFE_DIVIDE used throughout to avoid division-by-zero if OTIP is ever 0.
+-- ─────────────────────────────────────────────────────────────────────────────
+SELECT
+  ms.player_id,
+  ms.player_name,
+  ms.player_position_group_2,
+  ms.competition_edition_id,
+ 
+  COUNT(*) AS count_matches,
+ 
+  -- General
+  SAFE_DIVIDE(SUM(ms.count_on_ball_engagements),
+              SUM(perf.playing_time_total_minutes_otip)) * 30  AS count_on_ball_engagements_per_30_otip,
+ 
+  -- Pressing
+  SAFE_DIVIDE(SUM(ms.count_pressing_engagements),
+              SUM(perf.playing_time_total_minutes_otip)) * 30  AS count_pressing_engagements_per_30_otip,
+  SAFE_DIVIDE(SUM(ms.count_initiate_press),
+              SUM(perf.playing_time_total_minutes_otip)) * 30  AS count_initiate_press_per_30_otip,
+  SAFE_DIVIDE(SUM(ms.count_press_number_6),
+              SUM(perf.playing_time_total_minutes_otip)) * 30  AS count_press_number_6_per_30_otip,
+  SAFE_DIVIDE(SUM(ms.count_intense_double_press),
+              SUM(perf.playing_time_total_minutes_otip)) * 30  AS count_intense_double_press_per_30_otip,
+ 
+  -- Between the lines
+  SAFE_DIVIDE(SUM(ms.count_engagements_on_player_between_lines),
+              SUM(perf.playing_time_total_minutes_otip)) * 30  AS count_engagements_on_player_between_lines_per_30_otip,
+  SAFE_DIVIDE(SUM(ms.count_block_passes_to_player_between_lines),
+              SUM(perf.playing_time_total_minutes_otip)) * 30  AS count_block_passes_to_player_between_lines_per_30_otip,
+ 
+  -- Defending progressive play
+  SAFE_DIVIDE(SUM(ms.count_counter_press_engagements),
+              SUM(perf.playing_time_total_minutes_otip)) * 30  AS count_counter_press_engagements_per_30_otip,
+  SAFE_DIVIDE(SUM(ms.count_recovering_to_stop_progression),
+              SUM(perf.playing_time_total_minutes_otip)) * 30  AS count_recovering_to_stop_progression_per_30_otip,
+  SAFE_DIVIDE(SUM(ms.count_closing_down_to_stop_progression),
+              SUM(perf.playing_time_total_minutes_otip)) * 30  AS count_closing_down_to_stop_progression_per_30_otip,
+ 
+  -- Low block / quick break danger
+  SAFE_DIVIDE(SUM(ms.count_reacting_to_danger),
+              SUM(perf.playing_time_total_minutes_otip)) * 30  AS count_reacting_to_danger_per_30_otip
+ 
+FROM match_stats AS ms
+JOIN ${ref("player_performances")} AS perf
+  ON  ms.player_id = perf.player_id
+  AND ms.match_id  = perf.match_id
+WHERE perf.playing_time_total_minutes_played >= 45
+GROUP BY 1, 2, 3, 4
+HAVING COUNT(*) >= 5

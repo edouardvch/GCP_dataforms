@@ -1,0 +1,191 @@
+config {
+    type: "table",
+    schema: "csm_team_sandbox",
+    name: "options_in_pockets",
+    description: "",
+    bigquery: {
+        clusterBy: ["competition_edition_id", "player_id"]
+    },
+    uniqueKey:["player_id"],
+    assertions:{
+        uniqueKey: ["player_id"],
+        nonNull: ["competition_edition_id", "player_id"]
+    }
+}
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 1. Raw events for relevant competitions, with broad position grouping added
+-- ─────────────────────────────────────────────────────────────────────────────
+WITH base_events AS (
+  SELECT
+    de.*,
+    CASE
+      WHEN de.player_position IN ('GK')                          THEN 'Goalkeeper'
+      WHEN de.player_position IN ('LCB', 'CB', 'RCB')            THEN 'Central Defender'
+      WHEN de.player_position IN ('LWB', 'LB')                   THEN 'Left Full Back'
+      WHEN de.player_position IN ('RWB', 'RB')                   THEN 'Right Full Back'
+      WHEN de.player_position IN ('LDM', 'DM', 'RDM',
+                                   'LM',  'AM', 'RM')            THEN 'Midfield'
+      WHEN de.player_position IN ('LW', 'LF')                    THEN 'Left Wide Attacker'
+      WHEN de.player_position IN ('RW', 'RF')                    THEN 'Right Wide Attacker'
+      WHEN de.player_position IN ('CF')                          THEN 'Center Forward'
+      ELSE                                                            'Other Position'
+    END AS player_position_group_2
+  FROM ${ref("dynamic_events_sandbox", "dynamic_events")} AS de
+  WHERE de.competition_edition_id IN (1230, 1194, 1189, 1096, 1198, 1217, 1233, 1199)
+    AND event_type IN ('player_possession', 'passing_option')
+),
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 2. Passing option with possession attributes when received
+-- ─────────────────────────────────────────────────────────────────────────────
+enriched_po_pp AS (
+  SELECT
+    po.*
+  FROM base_events AS po
+  WHERE po.event_type = 'passing_option'
+),
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 3. Aggregate per player / match
+-- ─────────────────────────────────────────────────────────────────────────────
+match_counts AS (
+  SELECT
+    player_id,
+    player_name,
+    player_position_group_2,
+    match_id,
+    competition_edition_id,
+
+    -- ── Diagonal filter (angle 20–60 or -60–-20) ──────────────────────────
+    SUM(CASE WHEN furthest_line_break_type = 'through' AND furthest_line_break = 'first'
+              AND ((interplayer_angle BETWEEN 20 AND 60) OR (interplayer_angle BETWEEN -60 AND -20))
+             THEN 1 ELSE 0 END)                                              AS first_line_break_diagonal_option,
+    SUM(CASE WHEN furthest_line_break_type = 'through' AND furthest_line_break = 'second_last'
+              AND ((interplayer_angle BETWEEN 20 AND 60) OR (interplayer_angle BETWEEN -60 AND -20))
+             THEN 1 ELSE 0 END)                                              AS second_last_line_break_diagonal_option,
+    SUM(CASE WHEN furthest_line_break_type = 'through' AND furthest_line_break = 'last'
+              AND ((interplayer_angle BETWEEN 20 AND 60) OR (interplayer_angle BETWEEN -60 AND -20))
+             THEN 1 ELSE 0 END)                                              AS last_line_break_diagonal_option,
+
+    SUM(CASE WHEN furthest_line_break_type = 'through' AND furthest_line_break = 'first'
+              AND ((interplayer_angle BETWEEN 20 AND 60) OR (interplayer_angle BETWEEN -60 AND -20))
+              AND received = TRUE
+             THEN 1 ELSE 0 END)                                              AS first_line_break_diagonal_option_received,
+    SUM(CASE WHEN furthest_line_break_type = 'through' AND furthest_line_break = 'second_last'
+              AND ((interplayer_angle BETWEEN 20 AND 60) OR (interplayer_angle BETWEEN -60 AND -20))
+              AND received = TRUE
+             THEN 1 ELSE 0 END)                                              AS second_last_line_break_diagonal_option_received,
+    SUM(CASE WHEN furthest_line_break_type = 'through' AND furthest_line_break = 'last'
+              AND ((interplayer_angle BETWEEN 20 AND 60) OR (interplayer_angle BETWEEN -60 AND -20))
+              AND received = TRUE
+             THEN 1 ELSE 0 END)                                              AS last_line_break_diagonal_option_received,
+
+    -- ── No angle filter (all angles) ──────────────────────────────────────
+    SUM(CASE WHEN furthest_line_break_type = 'through' AND furthest_line_break = 'first'
+             THEN 1 ELSE 0 END)                                              AS first_line_break_option,
+    SUM(CASE WHEN furthest_line_break_type = 'through' AND furthest_line_break = 'second_last'
+             THEN 1 ELSE 0 END)                                              AS second_last_line_break_option,
+    SUM(CASE WHEN furthest_line_break_type = 'through' AND furthest_line_break = 'last'
+             THEN 1 ELSE 0 END)                                              AS last_line_break_option,
+
+    SUM(CASE WHEN furthest_line_break_type = 'through' AND furthest_line_break = 'first'
+              AND received = TRUE
+             THEN 1 ELSE 0 END)                                              AS first_line_break_option_received,
+    SUM(CASE WHEN furthest_line_break_type = 'through' AND furthest_line_break = 'second_last'
+              AND received = TRUE
+             THEN 1 ELSE 0 END)                                              AS second_last_line_break_option_received,
+    SUM(CASE WHEN furthest_line_break_type = 'through' AND furthest_line_break = 'last'
+              AND received = TRUE
+             THEN 1 ELSE 0 END)                                              AS last_line_break_option_received
+
+  FROM enriched_po_pp
+  GROUP BY 1, 2, 3, 4, 5
+),
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 4. Normalize per 30 minutes of time in possession (tip)
+-- ─────────────────────────────────────────────────────────────────────────────
+normalized_counts AS (
+  SELECT
+    mc.competition_edition_id,
+    mc.player_id,
+    mc.player_name,
+    mc.player_position_group_2,
+
+    COUNT(*)                                                                  AS count_matches,
+
+    -- ── Raw totals (diagonal) ────────────────────────────────────────────────
+    SUM(mc.first_line_break_diagonal_option)                                  AS first_line_break_diagonal_option,
+    SUM(mc.second_last_line_break_diagonal_option)                            AS second_last_line_break_diagonal_option,
+    SUM(mc.last_line_break_diagonal_option)                                   AS last_line_break_diagonal_option,
+
+    SUM(mc.first_line_break_diagonal_option_received)                         AS first_line_break_diagonal_option_received,
+    SUM(mc.second_last_line_break_diagonal_option_received)                   AS second_last_line_break_diagonal_option_received,
+    SUM(mc.last_line_break_diagonal_option_received)                          AS last_line_break_diagonal_option_received,
+
+    -- ── Per 30 min tip (diagonal) ────────────────────────────────────────────
+    SAFE_DIVIDE(SUM(mc.first_line_break_diagonal_option),
+                SUM(perf.playing_time_total_minutes_tip)) * 30                AS first_line_break_diagonal_option_per_30_tip,
+    SAFE_DIVIDE(SUM(mc.second_last_line_break_diagonal_option),
+                SUM(perf.playing_time_total_minutes_tip)) * 30                AS second_last_line_break_diagonal_option_per_30_tip,
+    SAFE_DIVIDE(SUM(mc.last_line_break_diagonal_option),
+                SUM(perf.playing_time_total_minutes_tip)) * 30                AS last_line_break_diagonal_option_per_30_tip,
+
+    SAFE_DIVIDE(SUM(mc.first_line_break_diagonal_option_received),
+                SUM(perf.playing_time_total_minutes_tip)) * 30                AS first_line_break_diagonal_option_received_per_30_tip,
+    SAFE_DIVIDE(SUM(mc.second_last_line_break_diagonal_option_received),
+                SUM(perf.playing_time_total_minutes_tip)) * 30                AS second_last_line_break_diagonal_option_received_per_30_tip,
+    SAFE_DIVIDE(SUM(mc.last_line_break_diagonal_option_received),
+                SUM(perf.playing_time_total_minutes_tip)) * 30                AS last_line_break_diagonal_option_received_per_30_tip,
+
+    -- ── Receive ratios (diagonal) ────────────────────────────────────────────
+    SAFE_DIVIDE(SUM(mc.first_line_break_diagonal_option_received),
+                SUM(mc.first_line_break_diagonal_option)) * 100               AS first_line_break_diagonal_option_received_ratio,
+    SAFE_DIVIDE(SUM(mc.second_last_line_break_diagonal_option_received),
+                SUM(mc.second_last_line_break_diagonal_option)) * 100         AS second_last_line_break_diagonal_option_received_ratio,
+    SAFE_DIVIDE(SUM(mc.last_line_break_diagonal_option_received),
+                SUM(mc.last_line_break_diagonal_option)) * 100                AS last_line_break_diagonal_option_received_ratio,
+
+    -- ── Raw totals (all angles) ──────────────────────────────────────────────
+    SUM(mc.first_line_break_option)                                           AS first_line_break_option,
+    SUM(mc.second_last_line_break_option)                                     AS second_last_line_break_option,
+    SUM(mc.last_line_break_option)                                            AS last_line_break_option,
+
+    SUM(mc.first_line_break_option_received)                                  AS first_line_break_option_received,
+    SUM(mc.second_last_line_break_option_received)                            AS second_last_line_break_option_received,
+    SUM(mc.last_line_break_option_received)                                   AS last_line_break_option_received,
+
+    -- ── Per 30 min tip (all angles) ──────────────────────────────────────────
+    SAFE_DIVIDE(SUM(mc.first_line_break_option),
+                SUM(perf.playing_time_total_minutes_tip)) * 30                AS first_line_break_option_per_30_tip,
+    SAFE_DIVIDE(SUM(mc.second_last_line_break_option),
+                SUM(perf.playing_time_total_minutes_tip)) * 30                AS second_last_line_break_option_per_30_tip,
+    SAFE_DIVIDE(SUM(mc.last_line_break_option),
+                SUM(perf.playing_time_total_minutes_tip)) * 30                AS last_line_break_option_per_30_tip,
+
+    SAFE_DIVIDE(SUM(mc.first_line_break_option_received),
+                SUM(perf.playing_time_total_minutes_tip)) * 30                AS first_line_break_option_received_per_30_tip,
+    SAFE_DIVIDE(SUM(mc.second_last_line_break_option_received),
+                SUM(perf.playing_time_total_minutes_tip)) * 30                AS second_last_line_break_option_received_per_30_tip,
+    SAFE_DIVIDE(SUM(mc.last_line_break_option_received),
+                SUM(perf.playing_time_total_minutes_tip)) * 30                AS last_line_break_option_received_per_30_tip,
+
+    -- ── Receive ratios (all angles) ──────────────────────────────────────────
+    SAFE_DIVIDE(SUM(mc.first_line_break_option_received),
+                SUM(mc.first_line_break_option)) * 100                        AS first_line_break_option_received_ratio,
+    SAFE_DIVIDE(SUM(mc.second_last_line_break_option_received),
+                SUM(mc.second_last_line_break_option)) * 100                  AS second_last_line_break_option_received_ratio,
+    SAFE_DIVIDE(SUM(mc.last_line_break_option_received),
+                SUM(mc.last_line_break_option)) * 100                         AS last_line_break_option_received_ratio
+
+  FROM match_counts AS mc
+  JOIN ${ref("player_performances")} AS perf
+    ON  mc.player_id = perf.player_id
+    AND mc.match_id  = perf.match_id
+  WHERE perf.playing_time_total_minutes_played >= 45
+  GROUP BY 1, 2, 3, 4
+  HAVING COUNT(*) >= 5
+)
+
+SELECT * FROM normalized_counts

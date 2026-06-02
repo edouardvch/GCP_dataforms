@@ -1,0 +1,272 @@
+config {
+    type: "table",
+    schema: "csm_team_sandbox",
+    name: "pressure_advanced_insights",
+    description: "",
+    bigquery: {
+        clusterBy: ["competition_edition_id", "player_id"]
+    },
+    uniqueKey:["player_id"],
+    assertions:{
+        uniqueKey: ["player_id"],
+        nonNull: ["competition_edition_id", "player_id"]
+    }
+}
+ 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 1. Raw events for relevant competitions, with broad position grouping added
+-- ─────────────────────────────────────────────────────────────────────────────
+WITH base_events AS (
+  SELECT
+    de.*,
+    CASE
+      WHEN de.player_position IN ('GK')                         THEN 'Goalkeeper'
+      WHEN de.player_position IN ('LCB', 'CB', 'RCB')           THEN 'Central Defender'
+      WHEN de.player_position IN ('LWB', 'LB')                  THEN 'Left Full Back'
+      WHEN de.player_position IN ('RWB', 'RB')                  THEN 'Right Full Back'
+      WHEN de.player_position IN ('LDM', 'DM', 'RDM',
+                                  'LM',  'AM', 'RM')            THEN 'Midfield'
+      WHEN de.player_position IN ('LW', 'LF')                   THEN 'Left Wide Attacker'
+      WHEN de.player_position IN ('RW', 'RF')                   THEN 'Right Wide Attacker'
+      WHEN de.player_position IN ('CF')                         THEN 'Center Forward'
+      ELSE                                                           'Other Position'
+    END AS player_position_group_2
+  FROM ${ref("dynamic_events_sandbox", "dynamic_events")} AS de
+  WHERE de.competition_edition_id IN (
+    1198, 1199, 1217, 1232, 1233,
+    1230, 1194, 1390, 1169, 1393, 1265,
+    1189,1096
+  )
+),
+ 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 2. Enrich each player_possession with pressure context from:
+--    (a) the passer's event that targeted this player  → pressure the passer faced
+--    (b) the event in which this player was targeted   → pressure this player received
+--
+--    The join keys match on spatial + distance/angle fingerprints to link
+--    a possession back to the pass that created it, without a direct foreign key.
+-- ─────────────────────────────────────────────────────────────────────────────
+merged_pos_events AS (
+  SELECT
+    de.*,
+    de_received.overall_pressure_end_id   AS player_received_from_overall_pressure_end_id,
+    de_received.overall_pressure_end      AS player_received_from_overall_pressure_end,
+    de_targeted.overall_pressure_start_id AS player_targeted_overall_pressure_start_id,
+    de_targeted.overall_pressure_start    AS player_targeted_overall_pressure_start
+  FROM base_events AS de
+  -- Pressure on the player this possession will target (the next receiver)
+  LEFT JOIN base_events AS de_targeted
+    ON  de.match_id                    = de_targeted.match_id
+    AND de.player_targeted_id          = de_targeted.player_id
+    AND de.player_targeted_x_reception = de_targeted.x_start
+    AND de.player_targeted_y_reception = de_targeted.y_start
+    AND de.pass_distance               = de_targeted.pass_distance_received
+    AND de.pass_angle                  = de_targeted.pass_angle_received
+  -- Pressure on the passer who sent the ball to this player
+  LEFT JOIN base_events AS de_received
+    ON  de_received.match_id                    = de.match_id
+    AND de_received.player_targeted_id          = de.player_id
+    AND de_received.player_targeted_x_reception = de.x_start
+    AND de_received.player_targeted_y_reception = de.y_start
+    AND de_received.pass_distance               = de.pass_distance_received
+    AND de_received.pass_angle                  = de.pass_angle_received
+),
+ 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 3. Enrich each passing_option with the pressure context of the player
+--    currently in possession (joined via associated_player_possession_event_id).
+--
+--    INNER JOIN is intentional: passing options without a linked possession
+--    event are not meaningful and should be excluded.
+-- ─────────────────────────────────────────────────────────────────────────────
+merged_option_events AS (
+  SELECT
+    de.*,
+    poss.overall_pressure_start_id AS player_in_possession_overall_pressure_start_id,
+    poss.overall_pressure_start    AS player_in_possession_overall_pressure_start,
+    poss.overall_pressure_end_id   AS player_in_possession_overall_pressure_end_id,
+    poss.overall_pressure_end      AS player_in_possession_overall_pressure_end
+  FROM base_events AS de
+  JOIN base_events AS poss
+    ON  de.match_id                              = poss.match_id
+    AND de.associated_player_possession_event_id = poss.event_id
+  WHERE de.event_type = 'passing_option'
+),
+ 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 4. Per-match / per-player possession metrics
+-- ─────────────────────────────────────────────────────────────────────────────
+poss_match_stats AS (
+  SELECT
+    player_id,
+    player_name,
+    player_position_group_2,
+    match_id,
+    competition_edition_id,
+ 
+    COUNT(*) AS count_possessions,
+ 
+    -- Received ball while already under high pressure
+    SUM(CASE
+      WHEN overall_pressure_start_id >= 3
+       AND start_type = 'pass_reception'                                          THEN 1 ELSE 0 END)
+      AS count_received_under_pressure,
+ 
+    -- Started a possession under pressure (either inherently or carried over from passer)
+    SUM(CASE
+      WHEN overall_pressure_start_id >= 3
+        OR player_received_from_overall_pressure_end_id >= 3                      THEN 1 ELSE 0 END)
+      AS count_pressure_start,
+ 
+    -- Managed to reduce pressure during the possession
+    -- (own pressure level significantly higher than next receiver's incoming pressure)
+    SUM(CASE
+      WHEN (overall_pressure_start_id >= 3
+            AND overall_pressure_start_id > player_targeted_overall_pressure_start_id + 1)
+        OR (player_received_from_overall_pressure_end_id >= 3
+            AND player_received_from_overall_pressure_end_id > player_targeted_overall_pressure_start_id + 1)
+                                                                                  THEN 1 ELSE 0 END)
+      AS count_reduced_pressure,
+ 
+    -- Started with low pressure on the ball
+    SUM(CASE
+      WHEN overall_pressure_start_id <= 2                                         THEN 1 ELSE 0 END)
+      AS count_low_pressure_start,
+ 
+    -- Played into a higher-pressure zone (either dribbled forward or passed ahead into pressure)
+    SUM(CASE
+      WHEN overall_pressure_start_id <= 3
+       AND (
+         (overall_pressure_end_id > overall_pressure_start_id + 1
+          AND x_end >= x_start + 3)
+         OR (player_targeted_overall_pressure_start_id > overall_pressure_start_id + 1
+             AND CAST(pass_ahead AS BOOL) = TRUE)
+       )                                                                           THEN 1 ELSE 0 END)
+      AS count_play_into_pressure,
+ 
+    -- Maintained pressure and progressed (stayed under pressure while advancing)
+    SUM(CASE
+      WHEN (overall_pressure_start_id >= 3
+            OR player_received_from_overall_pressure_end_id >= 3)
+       AND (
+         (overall_pressure_end_id >= 3
+          AND x_end >= x_start + 3)
+         OR (player_targeted_overall_pressure_start_id >= 3
+             AND CAST(pass_ahead AS BOOL) = TRUE)
+       )                                                                           THEN 1 ELSE 0 END)
+      AS count_maintain_pressure_and_progress,
+
+      -- Progressed under pressure
+    SUM(CASE
+      WHEN (overall_pressure_start_id >= 3
+            OR player_received_from_overall_pressure_end_id >= 3)
+       AND (
+         (x_end >= x_start + 3)
+         OR (CAST(pass_ahead AS BOOL) = TRUE)
+       )                                                                           THEN 1 ELSE 0 END)
+      AS count_start_pressure_and_progress,
+ 
+  FROM merged_pos_events
+  GROUP BY 1, 2, 3, 4, 5
+),
+ 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 5. Per-match / per-player passing option metrics
+-- ─────────────────────────────────────────────────────────────────────────────
+option_match_stats AS (
+  SELECT
+    player_id,
+    player_name,
+    player_position_group_2,
+    match_id,
+ 
+    COUNT(*) AS count_passing_options,
+ 
+    -- High-quality relief option offered to a teammate under pressure:
+    --   passer is under heavy pressure AND this option has ≥90% xPass AND ≥2m distance
+    SUM(CASE
+      WHEN (player_in_possession_overall_pressure_start_id >= 3
+            OR player_in_possession_overall_pressure_end_id >= 3)
+       AND xpass_completion >= 0.9
+       AND distance_covered >= 2                                                   THEN 1 ELSE 0 END)
+      AS count_options_for_teammates_under_pressure
+ 
+  FROM merged_option_events
+  GROUP BY 1, 2, 3, 4
+)
+ 
+-- ─────────────────────────────────────────────────────────────────────────────
+-- 6. Final aggregation across matches; normalise to per-30-min-TIP rates.
+--    SAFE_DIVIDE used throughout to avoid division-by-zero.
+-- ─────────────────────────────────────────────────────────────────────────────
+SELECT
+  poss.competition_edition_id,
+  poss.player_id,
+  poss.player_name,
+  poss.player_position_group_2,
+ 
+  COUNT(*) AS count_matches,
+ 
+  -- ── Volume ──────────────────────────────────────────────────────────────────
+  SUM(poss.count_possessions)             AS count_possessions,
+  SUM(poss.count_received_under_pressure) AS count_received_under_pressure,
+ 
+  SAFE_DIVIDE(SUM(poss.count_possessions),
+              SUM(perf.playing_time_total_minutes_tip)) * 30 AS count_possessions_per_30_tip,
+  SAFE_DIVIDE(SUM(poss.count_received_under_pressure),
+              SUM(perf.playing_time_total_minutes_tip)) * 30 AS count_received_under_pressure_per_30_tip,
+ 
+  -- ── Pressure reduction ──────────────────────────────────────────────────────
+  SUM(poss.count_pressure_start)   AS count_pressure_start,
+  SUM(poss.count_reduced_pressure) AS count_reduced_pressure,
+ 
+  SAFE_DIVIDE(SUM(poss.count_pressure_start),
+              SUM(perf.playing_time_total_minutes_tip)) * 30  AS count_pressure_start_per_30_tip,
+  SAFE_DIVIDE(SUM(poss.count_reduced_pressure),
+              SUM(perf.playing_time_total_minutes_tip)) * 30  AS count_reduced_pressure_per_30_tip,
+  SAFE_DIVIDE(SUM(poss.count_reduced_pressure),
+              SUM(poss.count_pressure_start))           * 100 AS reduce_pressure_ratio,
+ 
+  -- ── Playing into pressure ───────────────────────────────────────────────────
+  SUM(poss.count_low_pressure_start) AS count_low_pressure_start,
+  SUM(poss.count_play_into_pressure) AS count_play_into_pressure,
+ 
+  SAFE_DIVIDE(SUM(poss.count_low_pressure_start),
+              SUM(perf.playing_time_total_minutes_tip)) * 30  AS count_low_pressure_start_per_30_tip,
+  SAFE_DIVIDE(SUM(poss.count_play_into_pressure),
+              SUM(perf.playing_time_total_minutes_tip)) * 30  AS count_play_into_pressure_per_30_tip,
+  SAFE_DIVIDE(SUM(poss.count_play_into_pressure),
+              SUM(poss.count_low_pressure_start))        * 100 AS play_into_pressure_ratio,
+ 
+  -- ── Maintaining pressure while progressing ──────────────────────────────────
+  SUM(poss.count_maintain_pressure_and_progress) AS count_maintain_pressure_and_progress,
+ 
+  SAFE_DIVIDE(SUM(poss.count_maintain_pressure_and_progress),
+              SUM(perf.playing_time_total_minutes_tip)) * 30  AS count_maintain_pressure_and_progress_per_30_tip,
+
+  -- ── Under pressure and progressing ──────────────────────────────────
+  SUM(poss.count_start_pressure_and_progress) AS count_start_pressure_and_progress,
+
+  SAFE_DIVIDE(SUM(poss.count_start_pressure_and_progress),
+            SUM(perf.playing_time_total_minutes_tip)) * 30  AS count_start_pressure_and_progress_per_30_tip,
+    
+  -- ── Passing options ─────────────────────────────────────────────────────────
+  SUM(opt.count_passing_options)                      AS count_passing_options,
+  SUM(opt.count_options_for_teammates_under_pressure) AS count_options_for_teammates_under_pressure,
+ 
+  SAFE_DIVIDE(SUM(opt.count_passing_options),
+              SUM(perf.playing_time_total_minutes_tip)) * 30  AS count_passing_options_per_30_tip,
+  SAFE_DIVIDE(SUM(opt.count_options_for_teammates_under_pressure),
+              SUM(perf.playing_time_total_minutes_tip)) * 30  AS count_options_for_teammates_under_pressure_per_30_tip
+ 
+FROM poss_match_stats AS poss
+JOIN option_match_stats AS opt
+  ON  poss.player_id = opt.player_id
+  AND poss.match_id  = opt.match_id
+JOIN ${ref("player_performances")} AS perf
+  ON  poss.player_id = perf.player_id
+  AND poss.match_id  = perf.match_id
+WHERE perf.playing_time_total_minutes_played >= 45
+GROUP BY 1, 2, 3, 4
+HAVING COUNT(*) >= 5
