@@ -7,7 +7,6 @@ config {
     },
     uniqueKey:["player_id"],
     assertions:{
-        uniqueKey:["player_id"],
         nonNull: ["player_id", "competition_edition_id"]
     }
 }
