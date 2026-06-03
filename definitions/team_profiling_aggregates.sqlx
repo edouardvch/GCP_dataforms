@@ -106,7 +106,7 @@ WITH in_posssesion AS (
       CASE WHEN event_type = 'passing_option' THEN CAST(targeted AS INT) ELSE NULL END) AS xthreat_corr,
 
   FROM
-    ${ref("dynamic_events_ip")}
+    ${ref("in_possesion_event")}
   GROUP BY
     team_id,
     season_id,
@@ -156,7 +156,7 @@ out_of_possession AS (
     NULLIF(SUM(CASE WHEN event_type = 'player_possession' AND third_start IN ('middle_third', 'defensive_third') AND (separation_start <= 2 OR separation_end <= 2) THEN 1 ELSE 0 END), 0), 0)) * 100 AS pressure_height_and_disruption
 
   FROM
-    ${ref("dynamic_events_ip")}
+    ${ref("in_possesion_event")}
   GROUP BY
     opposition_team_id,
     season_id,
