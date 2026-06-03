@@ -58,6 +58,6 @@ SELECT
   END AS targeted_safe_simple_option
 
 FROM
-  ${ref("events", "dynamic_events")} AS dynamic_events
+  ${ref("dynamic_events_sandbox", "dynamic_events")} AS dynamic_events
 
 WHERE event_type = 'player_possession'
