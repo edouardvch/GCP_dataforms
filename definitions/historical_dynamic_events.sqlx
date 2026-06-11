@@ -1,16 +1,24 @@
 config {
-    type: "table",
+    type: "incremental",
     schema: "historical_data",
     name: "historical_dynamic_events",
     bigquery: {
+        partitionBy: "season_name",
         clusterBy: ["event_id", "event_type", "event_subtype"]
     },
     uniqueKey:["event_id"],
     assertions:{
         nonNull: ["event_id"]
-    }
+    },
+    tags : ["daily_incremental"]
 }
 
-SELECT de.* FROM ${ref("skillcorner_external_data", "dynamic_events")} AS de
-JOIN ${ref("skillcorner_external_data", "match_metadata")} AS mm ON mm.match_id = de.match_id
+SELECT 
+    de.*,
+    mm.season_name
+FROM ${ref("skillcorner_external_data", "dynamic_events")} AS de
+JOIN ${ref("skillcorner_external_data", "match_metadata")} AS mm 
+    ON mm.match_id = de.match_id
 WHERE mm.season_name IN ('2021', '2021/2022', '2022', '2022/2023', '2023', '2023/2024',  '2024/2025', '2025', '2024', '2025/2026', '2026')
+
+${when(incremental(), `AND mm.season_name IN ('2025/2026', '2026')`)}

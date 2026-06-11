@@ -1,15 +1,19 @@
 config {
-    type: "table",
+    type: "incremental",
     schema: "historical_data",
     name: "historical_match_metadata",
     bigquery: {
+        partitionBy: "season_name",
         clusterBy: ["match_id", "competition_edition_id", "home_team_id", "away_team_id"]
     },
     assertions:{
         nonNull: ["match_id", "competition_edition_id", "home_team_id", "away_team_id"]
-    }
+    },
+    tags: ["daily_incremental"]
 }
 
 SELECT * FROM ${ref("skillcorner_external_data", "match_metadata")}
 WHERE season_name 
     IN ('2021', '2021/2022', '2022', '2022/2023', '2023', '2023/2024',  '2024/2025', '2025', '2024', '2025/2026', '2026')
+
+${when(incremental(), `AND season_name IN ('2025/2026', '2026')`)}
