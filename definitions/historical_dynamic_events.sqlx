@@ -11,6 +11,6 @@ config {
     }
 }
 
-SELECT * FROM ${ref("skillcorner_external_data", "dynamic_events")} AS de
+SELECT de.* FROM ${ref("skillcorner_external_data", "dynamic_events")} AS de
 JOIN ${ref("match_metadata")} AS mm ON mm.match_id = de.match_id
 WHERE mm.season_name IN ('2021', '2021/2022', '2022', '2022/2023', '2023', '2023/2024',  '2024/2025', '2025', '2024', '2025/2026', '2026')
