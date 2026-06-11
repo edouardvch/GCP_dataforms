@@ -44,7 +44,7 @@ WITH home_points AS (
     END) AS points
 
   FROM 
-    ${ref("match_metadata")}
+    ${ref("metadata", "match_metadata")}
   WHERE
     status != 'postponed'
   GROUP BY
@@ -85,7 +85,7 @@ away_points AS (
     END) AS points
 
   FROM 
-    ${ref("match_metadata")}
+    ${ref("metadata", "match_metadata")}
   WHERE
     status != 'postponed'
   GROUP BY

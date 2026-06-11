@@ -73,7 +73,7 @@ WITH modified_events AS (
     FROM     
       ${ref("events", "dynamic_events")} AS dynamic_events 
     JOIN 
-      ${ref("match_metadata")} AS match_meta  
+      ${ref("metadata", "match_metadata")} AS match_meta  
     ON dynamic_events.match_id = match_meta.match_id
     LEFT JOIN 
       ${ref("events", "dynamic_events")} AS filtered_options

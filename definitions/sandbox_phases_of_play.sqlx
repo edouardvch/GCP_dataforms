@@ -29,7 +29,7 @@ WITH modified_phases AS (
     FROM     
       ${ref("events", "phases_of_play")} AS phases_of_play 
     JOIN 
-      ${ref("match_metadata")} AS match_meta  
+      ${ref("metadata", "match_metadata")} AS match_meta  
     ON phases_of_play.match_id = match_meta.match_id
     WHERE
       match_meta.season_name IN ('2024/2025', '2025', '2024', '2025/2026') or match_meta.competition_edition_id IN (168,198,360,235)
