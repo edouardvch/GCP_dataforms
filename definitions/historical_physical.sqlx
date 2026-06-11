@@ -1,0 +1,16 @@
+config {
+    type: "table",
+    schema: "historical_data",
+    name: "historical_physical_data",
+    bigquery: {
+        clusterBy: ["player_id", "match_id", "competition_edition_id"]
+    },
+    assertions:{
+        nonNull: ["player_id", "match_id"]
+    }
+}
+
+SELECT phys.* FROM ${ref("skillcorner_external_data", "physical_v3_data")} AS phys
+JOIN ${ref("skillcorner_external_data", "match_metadata")} AS mm ON mm.match_id = phys.match_id
+WHERE mm.season_name 
+    IN ('2021', '2021/2022', '2022', '2022/2023', '2023', '2023/2024',  '2024/2025', '2025', '2024', '2025/2026', '2026')

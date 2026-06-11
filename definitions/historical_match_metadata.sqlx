@@ -1,13 +1,12 @@
 config {
     type: "table",
     schema: "historical_data",
-    name: "historical_phases_of_play",
+    name: "historical_match_metadata",
     bigquery: {
-        clusterBy: ["event_id", "event_type", "event_subtype"]
+        clusterBy: ["match_id", "competition_edition_id", "home_team_id", "away_team_id"]
     },
-    uniqueKey:["event_id"],
     assertions:{
-        nonNull: ["event_id"]
+        nonNull: ["match_id", "competition_edition_id", "home_team_id", "away_team_id"]
     }
 }
 
