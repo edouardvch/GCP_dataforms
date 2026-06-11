@@ -9,7 +9,7 @@ config {
     assertions:{
         nonNull: ["player_id", "match_id"]
     },
-    tags: ["daily_incremental"]
+    tags: ["bi_weekly_incremental"]
 }
 
 SELECT

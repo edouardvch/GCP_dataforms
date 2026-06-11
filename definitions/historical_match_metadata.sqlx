@@ -9,7 +9,7 @@ config {
     assertions:{
         nonNull: ["match_id", "competition_edition_id", "home_team_id", "away_team_id"]
     },
-    tags: ["daily_incremental"]
+    tags: ["bi_weekly_incremental"]
 }
 
 SELECT * FROM ${ref("skillcorner_external_data", "match_metadata")}

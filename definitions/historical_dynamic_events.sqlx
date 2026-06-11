@@ -10,7 +10,7 @@ config {
     assertions:{
         nonNull: ["event_id"]
     },
-    tags : ["daily_incremental"]
+    tags : ["bi_weekly_incremental"]
 }
 
 SELECT 
