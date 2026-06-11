@@ -1,0 +1,16 @@
+config {
+    type: "table",
+    schema: "dynamic_events_sandbox",
+    name: "historical_dynamic_events",
+    bigquery: {
+        clusterBy: ["competition_id", "competition_edition_id", "event_type", "event_subtype"]
+    },
+    uniqueKey:["event_id"],
+    assertions:{
+        nonNull: ["event_id", "competition_id", "competition_edition_id"]
+    }
+}
+
+SELECT * FROM ${ref("skillcorner_external_data", "dynamic_events")} AS de
+JOIN ${ref("match_metadata")} AS mm ON mm.match_id = de.match_id
+WHERE mm.season_name IN ('2021', '2021/2022', '2022', '2022/2023', '2023', '2023/2024',  '2024/2025', '2025', '2024', '2025/2026', '2026')
