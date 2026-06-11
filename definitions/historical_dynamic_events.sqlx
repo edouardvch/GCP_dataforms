@@ -3,11 +3,11 @@ config {
     schema: "dynamic_events_sandbox",
     name: "historical_dynamic_events",
     bigquery: {
-        clusterBy: ["competition_id", "competition_edition_id", "event_type", "event_subtype"]
+        clusterBy: ["event_id", "event_type", "event_subtype"]
     },
     uniqueKey:["event_id"],
     assertions:{
-        nonNull: ["event_id", "competition_id", "competition_edition_id"]
+        nonNull: ["event_id"]
     }
 }
 
