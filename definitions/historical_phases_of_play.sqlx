@@ -3,10 +3,10 @@ config {
     schema: "historical_data",
     name: "historical_phases_of_play",
     bigquery: {
-        clusterBy: ["match_id", "team_possesion_id"]
+        clusterBy: ["match_id", "team_in_possession_id"]
     },
     assertions:{
-        nonNull: ["match_id", "team_possesion_id"]
+        nonNull: ["match_id", "team_in_possession_id"]
     }
 }
 
