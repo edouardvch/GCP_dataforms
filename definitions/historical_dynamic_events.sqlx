@@ -14,7 +14,7 @@ config {
 }
 
 SELECT 
-    de.*,
+    de.* EXCEPT (season_name),
     mm.season_name
 FROM ${ref("skillcorner_external_data", "dynamic_events")} AS de
 JOIN ${ref("skillcorner_external_data", "match_metadata")} AS mm 
