@@ -3,7 +3,7 @@ config {
     schema: "historical_data",
     name: "historical_dynamic_events",
     bigquery: {
-        clusterBy: ["season_name", "event_id", "event_type", "event_subtype"]
+        clusterBy: ["event_id", "event_type", "event_subtype"]
     },
     uniqueKey:["event_id"],
     assertions:{
@@ -13,7 +13,7 @@ config {
 }
 
 SELECT 
-    de.* EXCEPT (season_name),
+    de.*,
     mm.season_name
 FROM ${ref("skillcorner_external_data", "dynamic_events")} AS de
 JOIN ${ref("skillcorner_external_data", "match_metadata")} AS mm 

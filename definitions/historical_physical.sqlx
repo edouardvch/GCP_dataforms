@@ -3,7 +3,7 @@ config {
     schema: "historical_data",
     name: "historical_physical_data",
     bigquery: {
-        clusterBy: ["season_name", "player_id", "match_id", "competition_edition_id"]
+        clusterBy: ["player_id", "match_id", "competition_edition_id"]
     },
     assertions:{
         nonNull: ["player_id", "match_id"]
