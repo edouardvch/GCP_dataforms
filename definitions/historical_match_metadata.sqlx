@@ -3,8 +3,7 @@ config {
     schema: "historical_data",
     name: "historical_match_metadata",
     bigquery: {
-        partitionBy: "season_name",
-        clusterBy: ["match_id", "competition_edition_id", "home_team_id", "away_team_id"]
+        clusterBy: ["season_name", "match_id", "competition_edition_id", "home_team_id", "away_team_id"]
     },
     assertions:{
         nonNull: ["match_id", "competition_edition_id", "home_team_id", "away_team_id"]

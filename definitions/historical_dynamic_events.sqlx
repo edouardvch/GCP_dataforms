@@ -3,8 +3,7 @@ config {
     schema: "historical_data",
     name: "historical_dynamic_events",
     bigquery: {
-        partitionBy: "season_name",
-        clusterBy: ["event_id", "event_type", "event_subtype"]
+        clusterBy: ["season_name", "event_id", "event_type", "event_subtype"]
     },
     uniqueKey:["event_id"],
     assertions:{
