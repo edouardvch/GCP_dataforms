@@ -15,84 +15,92 @@ config {
 
 WITH home_points AS (
   SELECT
-    home_team_id,
-    competition_edition_id,
-    competition_id,
-    season_id,
+    mm.home_team_id,
+    mm.competition_edition_id,
+    ce.competition_id,
+    ce.season_id,
 
     COUNT(*) AS count_match,
 
     SUM(CASE
-      WHEN home_team_score > away_team_score THEN 1
+      WHEN mm.home_team_score > mm.away_team_score THEN 1
       ELSE 0
     END) AS wins,
 
     SUM(CASE
-      WHEN home_team_score = away_team_score THEN 1
+      WHEN mm.home_team_score = mm.away_team_score THEN 1
       ELSE 0
     END) AS draws,
 
     SUM(CASE
-      WHEN home_team_score < away_team_score THEN 1
+      WHEN mm.home_team_score < mm.away_team_score THEN 1
       ELSE 0
     END) AS losses,
 
     SUM(CASE
-      WHEN home_team_score > away_team_score THEN 3
-      WHEN home_team_score = away_team_score THEN 1
+      WHEN mm.home_team_score > away_team_score THEN 3
+      WHEN mm.home_team_score = mm.away_team_score THEN 1
       ELSE 0
     END) AS points
 
   FROM 
-    ${ref("metadata", "match_metadata")}
+    ${ref("metadata", "match_metadata")} AS mm
+  JOIN
+    ${ref("metadata", "competition_editions")} AS ce
+  ON
+    mm.competition_edition_id = ce.id
   WHERE
     status != 'postponed'
   GROUP BY
-    home_team_id,
-    competition_edition_id,
-    competition_id,
-    season_id
+    mm.home_team_id,
+    mm.competition_edition_id,
+    ce.competition_id,
+    ce.season_id
 ),
 
 away_points AS (
   SELECT
-    away_team_id,
-    competition_edition_id,
-    competition_id,
-    season_id,
+    mm.away_team_id,
+    mm.competition_edition_id,
+    ce.competition_id,
+    ce.season_id,
 
     COUNT(*) AS count_match,
 
     SUM(CASE
-      WHEN away_team_score > home_team_score THEN 1
+      WHEN mm.away_team_score > mm.home_team_score THEN 1
       ELSE 0
     END) AS wins,
 
     SUM(CASE
-      WHEN away_team_score = home_team_score THEN 1
+      WHEN mm.away_team_score = mm.home_team_score THEN 1
       ELSE 0
     END) AS draws,
 
     SUM(CASE
-      WHEN away_team_score < home_team_score THEN 1
+      WHEN mm.away_team_score < mm.home_team_score THEN 1
       ELSE 0
     END) AS losses,
 
     SUM(CASE
-      WHEN away_team_score > home_team_score THEN 3
-      WHEN away_team_score = home_team_score THEN 1
+      WHEN mm.away_team_score > mm.home_team_score THEN 3
+      WHEN mm.away_team_score = mm.home_team_score THEN 1
       ELSE 0
     END) AS points
 
   FROM 
-    ${ref("metadata", "match_metadata")}
+    ${ref("metadata", "match_metadata")} AS mm
+  JOIN
+    ${ref("metadata", "competition_editions")} AS ce
+  ON
+    mm.competition_edition_id = ce.id
   WHERE
     status != 'postponed'
   GROUP BY
-    away_team_id,
-    competition_edition_id,
-    competition_id,
-    season_id
+    mm.away_team_id,
+    mm.competition_edition_id,
+    ce.competition_id,
+    ce.season_id
 )
 
 SELECT

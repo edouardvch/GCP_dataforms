@@ -17,7 +17,7 @@ WITH mm_ce AS (
   SELECT
     mm.match_id,
     mm.competition_edition_id,
-    mm.competition_edition_name,
+    ce.name AS competition_edition_name,
     ce.competition_id,
     ce.competition_name,
     CASE

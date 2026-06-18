@@ -14,49 +14,57 @@ config {
 }
 
 SELECT 
-  player_id,
-  team_id,
-  competition_edition_id,
-  competition_id,
-  season_id,
+  pp.player_id,
+  pp.team_id,
+  mm.competition_edition_id,
+  ce.competition_id,
+  ce.season_id,
 
-  ANY_VALUE(wyscout_id) AS wyscout_id,
-  ANY_VALUE(first_name) AS first_name,
-  ANY_VALUE(last_name) AS last_name,
-  CONCAT(ANY_VALUE(first_name), ' ', ANY_VALUE(last_name)) AS player_name,
-  ANY_VALUE(short_name) AS short_name,
-  ANY_VALUE(birthday) AS birthday,
-  ANY_VALUE(gender) AS gender,
-  ANY_VALUE(competition_edition_name) AS competition_edition_name,
-  ANY_VALUE(competition_name) AS competition_name,
-  ANY_VALUE(season_name) AS season_name,
+  ANY_VALUE(pp.wyscout_id) AS wyscout_id,
+  ANY_VALUE(pp.first_name) AS first_name,
+  ANY_VALUE(pp.last_name) AS last_name,
+  CONCAT(ANY_VALUE(pp.first_name), ' ', ANY_VALUE(last_name)) AS player_name,
+  ANY_VALUE(pp.short_name) AS short_name,
+  ANY_VALUE(pp.birthday) AS birthday,
+  ANY_VALUE(pp.gender) AS gender,
+  ANY_VALUE(ce.name) AS competition_edition_name,
+  ANY_VALUE(ce.competition_name) AS competition_name,
+  ANY_VALUE(ce.season_name) AS season_name,
 
   COUNT(*) as count_in_squad,
 
   SUM(
     CASE WHEN 
-      start_time = '00:00:00'
+      pp.start_time = '00:00:00'
     THEN 1 ELSE 0 END
   )
   AS count_start_match,
 
   SUM(
     CASE WHEN 
-      start_time IS NOT NULL
-      AND start_time != '00:00:00'
+      pp.start_time IS NOT NULL
+      AND pp.start_time != '00:00:00'
     THEN 1 ELSE 0 END
   )
   AS count_sub_apperance,
 
   COUNT(*) * 90 as minutes_available,
-  SUM(minutes_played) AS minutes_played,
-  (SUM(minutes_played) / (COUNT(*) * 90)) * 100 as minutes_played_percentage
+  SUM(pp.minutes_played) AS minutes_played,
+  (SUM(pp.minutes_played) / (COUNT(*) * 90)) * 100 as minutes_played_percentage
 
 FROM
-    ${ref("player_performances")}
+    ${ref("player_performances")} AS pp
+JOIN
+  ${ref("metadata", "match_metadata")} AS mm
+ON
+  pp.match_id = mm.match_id
+JOIN
+  ${ref("metadata", "competition_editions")} AS ce
+ON
+    mm.competition_edition_id = ce.id
 GROUP BY
-  player_id, 
-  team_id, 
-  competition_edition_id, 
-  competition_id, 
-  season_id
+  pp.player_id, 
+  pp.team_id, 
+  mm.competition_edition_id, 
+  ce.competition_id, 
+  ce.season_id
