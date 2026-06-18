@@ -39,7 +39,7 @@ WITH mm_ce AS (
     ce.season_start_year,
     season_end_year
     FROM ${ref("metadata", "match_metadata")} AS mm
-    JOIN ${ref("competition_editions")} AS ce
+    JOIN ${ref("skillcorner_external_data", "competition_editions")} AS ce
     ON ce.id = mm.competition_edition_id
 ),
 
