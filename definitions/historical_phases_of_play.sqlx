@@ -17,11 +17,17 @@ pre_operations {
 
 SELECT
     pop.*,
-    mm.season_name
+    ce.season_name
 FROM ${ref("skillcorner_external_data", "phases_of_play")} AS pop
-JOIN ${ref("skillcorner_external_data", "match_metadata")} AS mm
+JOIN (
+    SELECT match_id, competition_edition_id
+    FROM ${ref("skillcorner_external_data", "match_metadata")}
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY match_id ORDER BY match_id) = 1
+) AS mm
     ON mm.match_id = pop.match_id
-WHERE mm.season_name 
+JOIN ${ref("skillcorner_external_data", "competition_editions")} AS ce
+    ON mm.competition_edition_id = ce.id
+WHERE ce.season_name
     IN ('2021', '2021/2022', '2022', '2022/2023', '2023', '2023/2024', '2024', '2024/2025', '2025', '2025/2026', '2026')
 
-${ when(incremental(), `AND mm.season_name IN ('2025/2026', '2026')`) }
+${ when(incremental(), `AND ce.season_name IN ('2025/2026', '2026')`) }
