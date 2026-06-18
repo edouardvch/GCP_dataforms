@@ -1,0 +1,269 @@
+config {
+    type: "table",
+    schema: "csm_team_sandbox",
+    name: "event_turin_cb_case_study_metrics",
+    description: "",
+    bigquery: {
+        clusterBy: ["competition_edition_id", "player_id"]
+    },
+    uniqueKey:["player_id"],
+    assertions:{
+        nonNull: ["competition_edition_id", "player_id"]
+    }
+}
+
+-- CB metrics table: OOP metrics normalized per 30 OTIP, IP metrics per 30 TIP
+-- Params: @competition_edition_ids (ARRAY<INT64>)
+-- Thresholds: minutes_full_all >= 60 per match, count_matches >= 5
+
+WITH
+
+-- minute denominators come from core_metadata (player_performances lacks competition_edition_id)
+minutes AS (
+  SELECT
+    player_id,
+    match_id,
+    playing_time_total_minutes_played  AS minutes_full_all,
+    playing_time_total_minutes_tip     AS minutes_full_tip,
+    playing_time_total_minutes_otip    AS minutes_full_otip
+  FROM ${ref("metadata", 'core_metadata')}
+  WHERE competition_edition_id IN (
+    1198, 1199, 1217, 1232, 1233,
+    1230, 1194, 1390, 1169, 1393, 1265,
+    1189,1096
+  )
+),
+
+-- Step 1: count metrics per player per match, join minute denominators
+match_level AS (
+  SELECT
+    de.player_id,
+    de.player_name,
+    de.player_position_group,
+    de.team_id,
+    de.team_shortname,
+    de.match_id,
+    de.competition_edition_id,
+
+    -- ── OOP metrics (denominator: OTIP minutes) ──────────────────────────────
+
+    COUNTIF(
+      event_type = 'on_ball_engagement'
+      AND event_subtype = 'recovery_press'
+      AND close_at_player_possession_start = FALSE
+      AND last_defensive_line_height_start >= 30
+    ) AS start_far_recovery_press,
+
+    COUNTIF(
+      event_type = 'on_ball_engagement'
+      AND channel_start IN ('half_space_right', 'center', 'half_space_left')
+      AND trajectory_direction = 'forward'
+      AND last_defensive_line_height_start >= 30
+    ) AS front_footed,
+
+    COUNTIF(
+      event_type = 'on_ball_engagement'
+      AND distance_covered >= 5
+      AND trajectory_direction = 'backward'
+      AND goal_side_start = TRUE
+      AND last_defensive_line_height_start >= 30
+    ) AS back_footed,
+
+    COUNTIF(
+      event_type = 'on_ball_engagement'
+      AND channel_start IN ('center', 'half_space_right', 'half_space_left')
+      AND team_out_of_possession_phase_type = 'low_block'
+      AND penalty_area_start = TRUE
+    ) AS defending_in_the_box,
+
+    COUNTIF(
+      event_type = 'on_ball_engagement'
+      AND xshot_player_possession_max >= 0.5
+    ) AS shot_blocking_situations,
+
+    -- ── IP metrics (denominator: TIP minutes) ────────────────────────────────
+
+    COUNTIF(
+      event_type = 'player_possession'
+      AND pass_outcome = 'successful'
+      AND high_pass = FALSE
+      AND furthest_line_break IN ('first', 'second_last')
+      AND furthest_line_break_type = 'through'
+      AND team_in_possession_phase_type = 'build_up'
+    ) AS build_up_line_breaks_no_pressure,
+
+    COUNTIF(
+      event_type = 'player_possession'
+      AND pass_outcome = 'successful'
+      AND high_pass = FALSE
+      AND furthest_line_break IN ('first', 'second_last')
+      AND furthest_line_break_type = 'through'
+      AND team_in_possession_phase_type = 'build_up'
+      AND overall_pressure_end IN ('medium_pressure', 'high_pressure', 'very_high_pressure')
+    ) AS build_up_line_breaks_pressure,
+
+    COUNTIF(
+      event_type = 'player_possession'
+      AND pass_outcome = 'successful'
+      AND high_pass = FALSE
+      AND furthest_line_break IN ('first', 'second_last')
+      AND furthest_line_break_type = 'through'
+      AND team_in_possession_phase_type = 'create'
+    ) AS create_line_breaks_no_pressure,
+
+    COUNTIF(
+      event_type = 'player_possession'
+      AND pass_outcome = 'successful'
+      AND high_pass = FALSE
+      AND furthest_line_break IN ('first', 'second_last')
+      AND furthest_line_break_type = 'through'
+      AND team_in_possession_phase_type = 'create'
+      AND overall_pressure_end IN ('medium_pressure', 'high_pressure', 'very_high_pressure')
+    ) AS create_line_breaks_pressure,
+
+    COUNTIF(
+      event_type = 'player_possession'
+      AND start_type = 'pass_reception'
+      AND team_in_possession_phase_type = 'build_up'
+    ) AS possessions_no_pressure_build_up,
+
+    COUNTIF(
+      event_type = 'player_possession'
+      AND start_type = 'pass_reception'
+      AND team_in_possession_phase_type = 'create'
+    ) AS possessions_no_pressure_create,
+
+    COUNTIF(
+      event_type = 'player_possession'
+      AND start_type = 'pass_reception'
+      AND overall_pressure_end IN ('medium_pressure', 'high_pressure', 'very_high_pressure')
+      AND team_in_possession_phase_type = 'build_up'
+    ) AS possessions_under_pressure_build_up,
+
+    COUNTIF(
+      event_type = 'player_possession'
+      AND start_type = 'pass_reception'
+      AND overall_pressure_end IN ('medium_pressure', 'high_pressure', 'very_high_pressure')
+      AND team_in_possession_phase_type = 'create'
+    ) AS possessions_under_pressure_create,
+
+    COUNTIF(
+      event_type = 'player_possession'
+      AND overall_pressure_start IN ('no_pressure', 'low_pressure')
+      AND overall_pressure_end IN ('medium_pressure', 'high_pressure', 'very_high_pressure')
+      AND carry = TRUE
+      AND team_in_possession_phase_type = 'build_up'
+    ) AS into_pressure_build_up,
+
+    COUNTIF(
+      event_type = 'player_possession'
+      AND overall_pressure_start IN ('no_pressure', 'low_pressure')
+      AND overall_pressure_end IN ('medium_pressure', 'high_pressure', 'very_high_pressure')
+      AND carry = TRUE
+      AND team_in_possession_phase_type = 'create'
+    ) AS into_pressure_create,
+
+    m.minutes_full_otip,
+    m.minutes_full_tip,
+    m.minutes_full_all
+
+  FROM ${ref("dynamic_events_sandbox", "dynamic_events")} AS de
+  JOIN minutes m
+    ON de.player_id = m.player_id
+   AND de.match_id  = m.match_id
+  WHERE de.competition_edition_id IN (
+    1198, 1199, 1217, 1232, 1233,
+    1230, 1194, 1390, 1169, 1393, 1265,
+    1189,1096
+  )
+    AND m.minutes_full_all >= 60
+  GROUP BY
+    de.player_id, de.player_name, de.player_position_group,
+    de.team_id, de.team_shortname,
+    de.match_id, de.competition_edition_id,
+    m.minutes_full_otip, m.minutes_full_tip, m.minutes_full_all
+),
+
+-- Step 2: sum across matches per player
+player_totals AS (
+  SELECT
+    player_id,
+    player_name,
+    player_position_group,
+    team_id,
+    team_shortname,
+    competition_edition_id,
+    COUNT(DISTINCT match_id)    AS count_matches,
+    SUM(minutes_full_all)       AS total_minutes,
+    SUM(minutes_full_otip)      AS total_otip_minutes,
+    SUM(minutes_full_tip)       AS total_tip_minutes,
+
+    SUM(start_far_recovery_press)           AS start_far_recovery_press,
+    SUM(front_footed)                       AS front_footed,
+    SUM(back_footed)                        AS back_footed,
+    SUM(defending_in_the_box)               AS defending_in_the_box,
+    SUM(shot_blocking_situations)           AS shot_blocking_situations,
+    SUM(build_up_line_breaks_no_pressure)   AS build_up_line_breaks_no_pressure,
+    SUM(build_up_line_breaks_pressure)      AS build_up_line_breaks_pressure,
+    SUM(create_line_breaks_no_pressure)     AS create_line_breaks_no_pressure,
+    SUM(create_line_breaks_pressure)        AS create_line_breaks_pressure,
+    SUM(possessions_no_pressure_build_up)   AS possessions_no_pressure_build_up,
+    SUM(possessions_no_pressure_create)     AS possessions_no_pressure_create,
+    SUM(possessions_under_pressure_build_up) AS possessions_under_pressure_build_up,
+    SUM(possessions_under_pressure_create)  AS possessions_under_pressure_create,
+    SUM(into_pressure_build_up)             AS into_pressure_build_up,
+    SUM(into_pressure_create)               AS into_pressure_create
+  FROM match_level
+  GROUP BY player_id, player_name, player_position_group, team_id, team_shortname, competition_edition_id
+)
+
+SELECT
+  player_id,
+  player_name,
+  player_position_group,
+  team_id,
+  team_shortname,
+  competition_edition_id,
+  count_matches,
+  total_minutes,
+  total_otip_minutes,
+  total_tip_minutes,
+
+  -- Raw counts
+  start_far_recovery_press,
+  front_footed,
+  back_footed,
+  defending_in_the_box,
+  shot_blocking_situations,
+  build_up_line_breaks_no_pressure,
+  build_up_line_breaks_pressure,
+  create_line_breaks_no_pressure,
+  create_line_breaks_pressure,
+  possessions_no_pressure_build_up,
+  possessions_no_pressure_create,
+  possessions_under_pressure_build_up,
+  possessions_under_pressure_create,
+  into_pressure_build_up,
+  into_pressure_create,
+
+  -- Per 30 OTIP (OOP metrics)
+  SAFE_DIVIDE(start_far_recovery_press * 30, total_otip_minutes)  AS start_far_recovery_press_p30otip,
+  SAFE_DIVIDE(front_footed             * 30, total_otip_minutes)  AS front_footed_p30otip,
+  SAFE_DIVIDE(back_footed              * 30, total_otip_minutes)  AS back_footed_p30otip,
+  SAFE_DIVIDE(defending_in_the_box     * 30, total_otip_minutes)  AS defending_in_the_box_p30otip,
+  SAFE_DIVIDE(shot_blocking_situations * 30, total_otip_minutes)  AS shot_blocking_situations_p30otip,
+
+  -- Per 30 TIP (IP metrics)
+  SAFE_DIVIDE(build_up_line_breaks_no_pressure    * 30, total_tip_minutes) AS build_up_line_breaks_no_pressure_p30tip,
+  SAFE_DIVIDE(build_up_line_breaks_pressure       * 30, total_tip_minutes) AS build_up_line_breaks_pressure_p30tip,
+  SAFE_DIVIDE(create_line_breaks_no_pressure      * 30, total_tip_minutes) AS create_line_breaks_no_pressure_p30tip,
+  SAFE_DIVIDE(create_line_breaks_pressure         * 30, total_tip_minutes) AS create_line_breaks_pressure_p30tip,
+  SAFE_DIVIDE(possessions_no_pressure_build_up    * 30, total_tip_minutes) AS possessions_no_pressure_build_up_p30tip,
+  SAFE_DIVIDE(possessions_no_pressure_create      * 30, total_tip_minutes) AS possessions_no_pressure_create_p30tip,
+  SAFE_DIVIDE(possessions_under_pressure_build_up * 30, total_tip_minutes) AS possessions_under_pressure_build_up_p30tip,
+  SAFE_DIVIDE(possessions_under_pressure_create   * 30, total_tip_minutes) AS possessions_under_pressure_create_p30tip,
+  SAFE_DIVIDE(into_pressure_build_up              * 30, total_tip_minutes) AS into_pressure_build_up_p30tip,
+  SAFE_DIVIDE(into_pressure_create                * 30, total_tip_minutes) AS into_pressure_create_p30tip
+
+FROM player_totals
+WHERE count_matches >= 5
