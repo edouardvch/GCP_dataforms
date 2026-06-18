@@ -16,11 +16,11 @@ WITH modified_phases AS (
     
     -- Additional match information.
     CAST(match_meta.competition_edition_id AS int64) AS competition_edition_id,
-    match_meta.competition_edition_name,
-    match_meta.competition_id,
-    match_meta.competition_name,
-    match_meta.season_id,
-    match_meta.season_name,
+    ce.name AS competition_edition_name,
+    ce.competition_id,
+    ce.competition_name,
+    ce.season_id,
+    ce.season_name,
     CONCAT(match_meta.home_team_name, ' v ',match_meta.away_team_name,' (', match_meta.date_time, ')') AS match_name,
 
     CASE WHEN phases_of_play.team_in_possession_id = match_meta.home_team_id THEN match_meta.away_team_id ELSE match_meta.home_team_id END AS team_out_of_possession_id,
@@ -31,7 +31,10 @@ WITH modified_phases AS (
     JOIN 
       ${ref("metadata", "match_metadata")} AS match_meta  
     ON phases_of_play.match_id = match_meta.match_id
+    JOIN 
+      ${ref("metadata", "competition_editions")} AS ce  
+    ON ce.id = match_meta.competition_edition_id
     WHERE
-      match_meta.season_name IN ('2024/2025', '2025', '2024', '2025/2026') or match_meta.competition_edition_id IN (168,198,360,235)
+      ce.season_name IN ('2024/2025', '2025', '2024', '2025/2026') or match_meta.competition_edition_id IN (168,198,360,235)
   )
 SELECT * FROM modified_phases

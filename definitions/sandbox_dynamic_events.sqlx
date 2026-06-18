@@ -61,11 +61,11 @@ WITH modified_events AS (
 
       -- Additional match information.
       CAST(match_meta.competition_edition_id AS int64) AS competition_edition_id,
-      match_meta.competition_edition_name,
-      match_meta.competition_id,
-      match_meta.competition_name,
-      match_meta.season_id,
-      match_meta.season_name,
+      ce.name AS competition_edition_name,
+      ce.competition_id,
+      ce.competition_name,
+      ce.season_id,
+      ce.season_name,
       CONCAT(match_meta.home_team_name, ' v ',match_meta.away_team_name,' (', match_meta.date_time, ')') AS match_name,
 
       CASE WHEN dynamic_events.team_id = match_meta.home_team_id THEN match_meta.away_team_id ELSE match_meta.home_team_id END AS opposition_team_id
@@ -75,6 +75,9 @@ WITH modified_events AS (
     JOIN 
       ${ref("metadata", "match_metadata")} AS match_meta  
     ON dynamic_events.match_id = match_meta.match_id
+    JOIN 
+      ${ref("metadata", "competition_editions")} AS ce  
+    ON ce.id = match_meta.competition_edition_id
     LEFT JOIN 
       ${ref("events", "dynamic_events")} AS filtered_options
     ON 
@@ -96,7 +99,7 @@ WITH modified_events AS (
       AND dynamic_events.event_type = 'on_ball_engagement'
       AND engaged_possessions.event_type = 'player_possession'
     WHERE
-      (match_meta.season_name IN ('2024/2025', '2025', '2024', '2025/2026', '2026')) OR (match_meta.competition_edition_id IN (419,546,390,1321,168,198,360,235))
+      (ce.season_name IN ('2024/2025', '2025', '2024', '2025/2026', '2026')) OR (match_meta.competition_edition_id IN (419,546,390,1321,168,198,360,235))
   )
   
 SELECT * FROM modified_events
