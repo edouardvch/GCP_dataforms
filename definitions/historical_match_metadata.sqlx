@@ -12,11 +12,16 @@ config {
 }
 
 pre_operations {
-    ${when(incremental(), `DELETE FROM ${self()} WHERE season_name IN ('2025/2026', '2026')`)}
+    ${when(incremental(), `DELETE FROM ${self()} WHERE ce.season_name IN ('2025/2026', '2026')`)}
 }
 
-SELECT * FROM ${ref("skillcorner_external_data", "match_metadata")}
-WHERE season_name 
+SELECT mm.* 
+FROM ${ref("skillcorner_external_data", "match_metadata")} AS mm
+JOIN
+    ${ref("skillcorner_external_data", "competition_editions")} AS ce
+ON
+    mm.competition_edition_id = ce.id
+WHERE ce.season_name 
     IN ('2021', '2021/2022', '2022', '2022/2023', '2023', '2023/2024',  '2024/2025', '2025', '2024', '2025/2026', '2026')
 
-${when(incremental(), `AND season_name IN ('2025/2026', '2026')`)}
+${when(incremental(), `AND ce.season_name IN ('2025/2026', '2026')`)}
