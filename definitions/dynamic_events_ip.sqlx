@@ -12,7 +12,7 @@ config {
 }
 
 SELECT
-  dynamic_events.*,
+  dynamic_events.* EXCEPT (competition_edition_id),
   mm.competition_edition_id,
   CASE
     WHEN dynamic_events.event_type = 'player_possession' AND

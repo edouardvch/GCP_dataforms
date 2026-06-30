@@ -18,7 +18,11 @@ SELECT
 FROM
   ${ref("events", "dynamic_events")} AS de
 
-JOIN ${ref("metadata", "match_metadata")} AS mm
+JOIN (
+  SELECT match_id, competition_edition_id
+  FROM ${ref("metadata", "match_metadata")}
+  QUALIFY ROW_NUMBER() OVER (PARTITION BY match_id ORDER BY competition_edition_id) = 1
+) AS mm
   ON mm.match_id = de.match_id
 
 WHERE de.event_type = 'on_ball_engagement'
