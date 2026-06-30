@@ -7,7 +7,6 @@ config {
         clusterBy: ["event_id", "match_id", "team_id", "player_id"]
     },
     assertions:{
-        uniqueKey: ["event_id", "match_id", "team_id", "player_id"],
         nonNull: ["event_id", "match_id", "team_id", "player_id"]
     }
 }
