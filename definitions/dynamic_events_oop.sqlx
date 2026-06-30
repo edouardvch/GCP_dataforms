@@ -18,9 +18,9 @@ FROM
   ${ref("events", "dynamic_events")} AS de
 
 JOIN (
-  SELECT match_id, competition_edition_id
+  SELECT match_id, MIN(competition_edition_id) AS competition_edition_id
   FROM ${ref("metadata", "match_metadata")}
-  QUALIFY ROW_NUMBER() OVER (PARTITION BY match_id ORDER BY competition_edition_id) = 1
+  GROUP BY match_id
 ) AS mm
   ON mm.match_id = de.match_id
 
