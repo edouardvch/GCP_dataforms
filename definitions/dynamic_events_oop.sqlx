@@ -14,9 +14,11 @@ config {
 }
 
 SELECT
-  dynamic_events.*
-
+  de.*, mm.competition_edition_id
 FROM
-  ${ref("events", "dynamic_events")} AS dynamic_events
+  ${ref("events", "dynamic_events")} AS de
 
-WHERE event_type = 'on_ball_engagement'
+JOIN ${ref("metadata", "match_metadata")} AS mm
+  ON mm.match_id = de.match_id
+
+WHERE de.event_type = 'on_ball_engagement'

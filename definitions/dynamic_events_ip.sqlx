@@ -13,7 +13,7 @@ config {
 
 SELECT
   dynamic_events.*,
-
+  mm.competition_edition_id,
   CASE
     WHEN dynamic_events.event_type = 'player_possession' AND
          EXISTS (
@@ -59,5 +59,8 @@ SELECT
 
 FROM
   ${ref("dynamic_events_sandbox", "dynamic_events")} AS dynamic_events
+
+JOIN ${ref("metadata", "match_metadata")} AS mm
+  ON mm.match_id = dynamic_events.match_id
 
 WHERE event_type = 'player_possession'
