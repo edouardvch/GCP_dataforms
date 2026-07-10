@@ -100,6 +100,8 @@ WITH modified_events AS (
       AND engaged_possessions.event_type = 'player_possession'
     WHERE
       (ce.season_name IN ('2024/2025', '2025', '2024', '2025/2026', '2026')) OR (match_meta.competition_edition_id IN (419,546,390,1321,168,198,360,235))
+    QUALIFY
+      ROW_NUMBER() OVER (PARTITION BY dynamic_events.match_id, dynamic_events.event_id ORDER BY filtered_options.event_id) = 1
   )
-  
+
 SELECT * FROM modified_events

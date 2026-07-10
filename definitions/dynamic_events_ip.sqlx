@@ -7,7 +7,8 @@ config {
         clusterBy: ["event_id", "match_id", "team_id", "player_id"]
     },
     assertions:{
-        nonNull: ["event_id", "match_id", "team_id", "player_id"]
+        nonNull: ["event_id", "match_id", "team_id", "player_id"],
+        uniqueKey: ["match_id", "event_id"]
     }
 }
 
@@ -60,7 +61,11 @@ SELECT
 FROM
   ${ref("dynamic_events_sandbox", "dynamic_events")} AS dynamic_events
 
-JOIN ${ref("metadata", "match_metadata")} AS mm
+JOIN (
+  SELECT match_id, MIN(competition_edition_id) AS competition_edition_id
+  FROM ${ref("metadata", "match_metadata")}
+  GROUP BY match_id
+) AS mm
   ON mm.match_id = dynamic_events.match_id
 
 WHERE event_type = 'player_possession'
