@@ -20,7 +20,6 @@ SELECT
   ce.competition_id,
   ce.season_id,
 
-  ANY_VALUE(pp.wyscout_id) AS wyscout_id,
   ANY_VALUE(pp.first_name) AS first_name,
   ANY_VALUE(pp.last_name) AS last_name,
   CONCAT(ANY_VALUE(pp.first_name), ' ', ANY_VALUE(last_name)) AS player_name,

@@ -47,7 +47,6 @@ mmce_pp AS (
   SELECT
   mm_ce.*,
   pp.player_id,
-  pp.wyscout_id AS player_wyscout_id,
   pp.team_id,
   pp.team_player_id,
   pp.number,
