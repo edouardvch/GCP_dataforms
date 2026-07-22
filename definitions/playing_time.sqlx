@@ -19,6 +19,7 @@ SELECT
   mm.competition_edition_id,
   ce.competition_id,
   ce.season_id,
+  ce.code,
 
   ANY_VALUE(pp.first_name) AS first_name,
   ANY_VALUE(pp.last_name) AS last_name,
@@ -67,3 +68,4 @@ GROUP BY
   mm.competition_edition_id, 
   ce.competition_id, 
   ce.season_id
+  ce.code
