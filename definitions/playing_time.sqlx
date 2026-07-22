@@ -67,5 +67,5 @@ GROUP BY
   pp.team_id, 
   mm.competition_edition_id, 
   ce.competition_id, 
-  ce.season_id
+  ce.season_id,
   ce.code
