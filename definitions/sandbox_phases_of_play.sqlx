@@ -35,6 +35,6 @@ WITH modified_phases AS (
       ${ref("metadata", "competition_editions")} AS ce  
     ON ce.id = match_meta.competition_edition_id
     WHERE
-      ce.season_name IN ('2024/2025', '2025', '2024', '2025/2026') or match_meta.competition_edition_id IN (168,198,360,235)
+      ce.season_name IN ('2023/2024', '2024', '2024/2025', '2025', '2024', '2025/2026', '2026') or match_meta.competition_edition_id IN (168,198,360,235)
   )
 SELECT * FROM modified_phases
