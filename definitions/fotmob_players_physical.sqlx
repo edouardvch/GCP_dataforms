@@ -1,0 +1,7 @@
+config {
+    type: "table",
+    schema: "external_provider_data",
+    name: "fotmob_players_physical",
+}
+
+SELECT * FROM `analysisteam-cloudsql.skillcorner_external_data.fotmob_players_physical`
