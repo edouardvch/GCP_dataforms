@@ -4,11 +4,9 @@ config {
     name: "team_profiling_aggregates",
     description: "",
     bigquery: {
-        clusterBy: ["team_id", "competition_edition_id"]
+        clusterBy: ["team_id", "season_id", "competition_id", "competition_edition_id"]
     },
-    uniqueKey:["team_id", "season_id", "competition_id", "competition_edition_id"],
     assertions:{
-        uniqueKey: ["team_id", "season_id", "competition_id", "competition_edition_id"],
         nonNull: ["team_id", "season_id", "competition_id", "competition_edition_id"]
     }
 }
