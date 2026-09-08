@@ -4,10 +4,10 @@ config {
     name: "team_phase_progression_aggregates",
     description: "",
     bigquery: {
-        clusterBy: ["match_id", "competition_edition_id", "team_in_possession_id"]
+        clusterBy: ["team_id", "competition_edition_id", "competition_id", "season_id"]
     },
     assertions:{
-        nonNull: ["match_id", "competition_edition_id", "competition_id", "season_id","team_in_possession_id"]
+        nonNull: ["team_id", "competition_edition_id", "competition_id", "season_id"]
     }
 }
 
