@@ -7,7 +7,7 @@ config {
         clusterBy: ["match_id", "competition_edition_id", "team_in_possession_id"]
     },
     assertions:{
-        nonNull: ["match_id", "competition_edition_id", "competition_id", "season_id","team_in_possession_id"]
+        nonNull: ["match_id", "competition_edition_id", "competition_id", "season_id", "team_out_of_possession_id"]
     }
 }
 
