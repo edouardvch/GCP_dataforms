@@ -1,0 +1,170 @@
+config {
+    type: "table",
+    schema: "phases_of_play",
+    name: "team_phase_time_aggregation",
+    description: "",
+    bigquery: {
+        clusterBy: ["match_id", "competition_edition_id", "team_in_possession_id"]
+    },
+    assertions:{
+        nonNull: ["match_id", "competition_edition_id", "competition_id", "season_id","team_in_possession_id"]
+    }
+}
+
+WITH oop_phases AS (
+  SELECT 
+    team_out_of_possession_id AS team_id,
+    --team_out_of_possession_shortname AS team_name,
+    competition_edition_id,
+    competition_edition_name,
+    competition_id,
+    competition_name,
+    season_id,
+    season_name,
+
+    (COALESCE(SUM(total_time_low_block), 0) / 
+     (COALESCE(SUM(total_time_low_block), 0) + COALESCE(SUM(total_time_medium_block), 0) + COALESCE(SUM(total_time_high_block), 0)
+     + COALESCE(SUM(total_time_defending_direct), 0) + COALESCE(SUM(total_time_defending_quick_break), 0) + COALESCE(SUM(total_time_defending_set_play), 0) + COALESCE(SUM(total_time_defending_transition), 0))) * 100 
+     AS percentage_of_out_of_possession_time_in_low_block,
+
+    (COALESCE(SUM(total_time_medium_block), 0) / 
+     (COALESCE(SUM(total_time_low_block), 0) + COALESCE(SUM(total_time_medium_block), 0) + COALESCE(SUM(total_time_high_block), 0)
+     + COALESCE(SUM(total_time_defending_direct), 0) + COALESCE(SUM(total_time_defending_quick_break), 0) + COALESCE(SUM(total_time_defending_set_play), 0) + COALESCE(SUM(total_time_defending_transition), 0))) * 100 
+     AS percentage_of_out_of_possession_time_in_medium_block,
+
+    (COALESCE(SUM(total_time_high_block), 0) / 
+     (COALESCE(SUM(total_time_low_block), 0) + COALESCE(SUM(total_time_medium_block), 0) + COALESCE(SUM(total_time_high_block), 0)
+     + COALESCE(SUM(total_time_defending_direct), 0) + COALESCE(SUM(total_time_defending_quick_break), 0) + COALESCE(SUM(total_time_defending_set_play), 0) + COALESCE(SUM(total_time_defending_transition), 0))) * 100 
+     AS percentage_of_out_of_possession_time_in_high_block,
+
+    (COALESCE(SUM(total_time_defending_transition), 0) / 
+     (COALESCE(SUM(total_time_low_block), 0) + COALESCE(SUM(total_time_medium_block), 0) + COALESCE(SUM(total_time_high_block), 0)
+     + COALESCE(SUM(total_time_defending_direct), 0) + COALESCE(SUM(total_time_defending_quick_break), 0) + COALESCE(SUM(total_time_defending_set_play), 0) + COALESCE(SUM(total_time_defending_transition), 0))) * 100 
+     AS percentage_of_out_of_possession_time_defending_transition,
+
+    (COALESCE(SUM(total_time_defending_quick_break), 0) / 
+     (COALESCE(SUM(total_time_low_block), 0) + COALESCE(SUM(total_time_medium_block), 0) + COALESCE(SUM(total_time_high_block), 0)
+     + COALESCE(SUM(total_time_defending_direct), 0) + COALESCE(SUM(total_time_defending_quick_break), 0) + COALESCE(SUM(total_time_defending_set_play), 0) + COALESCE(SUM(total_time_defending_transition), 0))) * 100 
+     AS percentage_of_out_of_possession_time_defending_quick_break,
+
+    (COALESCE(SUM(total_time_defending_direct), 0) / 
+     (COALESCE(SUM(total_time_low_block), 0) + COALESCE(SUM(total_time_medium_block), 0) + COALESCE(SUM(total_time_high_block), 0)
+     + COALESCE(SUM(total_time_defending_direct), 0) + COALESCE(SUM(total_time_defending_quick_break), 0) + COALESCE(SUM(total_time_defending_set_play), 0) + COALESCE(SUM(total_time_defending_transition), 0))) * 100 
+     AS percentage_of_out_of_possession_time_defending_direct
+
+  FROM 
+    ${ref("phases_of_play", "out_of_possession_phases")}
+  GROUP BY
+    team_out_of_possession_id,
+    --team_out_of_possession_shortname,
+    competition_edition_id,
+    competition_edition_name,
+    competition_id,
+    competition_name,
+    season_id,
+    season_name
+),
+
+ip_phases AS (
+  SELECT 
+    team_in_possession_id AS team_id,
+    --team_in_possession_shortname AS team_name,
+    competition_edition_id,
+    competition_edition_name,
+    competition_id,
+    competition_name,
+    season_id,
+    season_name,
+
+    (COALESCE(SUM(total_time_build_up), 0) / 
+     (COALESCE(SUM(total_time_build_up), 0) + COALESCE(SUM(total_time_create), 0) + COALESCE(SUM(total_time_finish), 0) + COALESCE(SUM(total_time_chaotic), 0)
+     + COALESCE(SUM(total_time_direct), 0) + COALESCE(SUM(total_time_quick_break), 0) + COALESCE(SUM(total_time_set_play), 0) + COALESCE(SUM(total_time_transition), 0))) * 100 
+     AS percentage_of_in_possession_time_in_build_up,
+
+    (COALESCE(SUM(total_time_create), 0) / 
+     (COALESCE(SUM(total_time_build_up), 0) + COALESCE(SUM(total_time_create), 0) + COALESCE(SUM(total_time_finish), 0) + COALESCE(SUM(total_time_chaotic), 0)
+     + COALESCE(SUM(total_time_direct), 0) + COALESCE(SUM(total_time_quick_break), 0) + COALESCE(SUM(total_time_set_play), 0) + COALESCE(SUM(total_time_transition), 0))) * 100 
+     AS percentage_of_in_possession_time_in_create,
+
+    (COALESCE(SUM(total_time_finish), 0) / 
+     (COALESCE(SUM(total_time_build_up), 0) + COALESCE(SUM(total_time_create), 0) + COALESCE(SUM(total_time_finish), 0) + COALESCE(SUM(total_time_chaotic), 0)
+     + COALESCE(SUM(total_time_direct), 0) + COALESCE(SUM(total_time_quick_break), 0) + COALESCE(SUM(total_time_set_play), 0) + COALESCE(SUM(total_time_transition), 0))) * 100 
+     AS percentage_of_in_possession_time_in_finish,
+
+    (COALESCE(SUM(total_time_quick_break), 0) / 
+     (COALESCE(SUM(total_time_build_up), 0) + COALESCE(SUM(total_time_create), 0) + COALESCE(SUM(total_time_finish), 0) + COALESCE(SUM(total_time_chaotic), 0)
+     + COALESCE(SUM(total_time_direct), 0) + COALESCE(SUM(total_time_quick_break), 0) + COALESCE(SUM(total_time_set_play), 0) + COALESCE(SUM(total_time_transition), 0))) * 100 
+     AS percentage_of_in_possession_time_in_quick_break,
+
+    (COALESCE(SUM(total_time_transition), 0) / 
+     (COALESCE(SUM(total_time_build_up), 0) + COALESCE(SUM(total_time_create), 0) + COALESCE(SUM(total_time_finish), 0) + COALESCE(SUM(total_time_chaotic), 0)
+     + COALESCE(SUM(total_time_direct), 0) + COALESCE(SUM(total_time_quick_break), 0) + COALESCE(SUM(total_time_set_play), 0) + COALESCE(SUM(total_time_transition), 0))) * 100 
+     AS percentage_of_in_possession_time_in_transition,
+
+    (COALESCE(SUM(total_time_direct), 0) / 
+     (COALESCE(SUM(total_time_build_up), 0) + COALESCE(SUM(total_time_create), 0) + COALESCE(SUM(total_time_finish), 0) + COALESCE(SUM(total_time_chaotic), 0)
+     + COALESCE(SUM(total_time_direct), 0) + COALESCE(SUM(total_time_quick_break), 0) + COALESCE(SUM(total_time_set_play), 0) + COALESCE(SUM(total_time_transition), 0))) * 100 
+     AS percentage_of_in_possession_time_in_direct,
+
+    (COALESCE(SUM(total_time_chaotic), 0) / 
+     (COALESCE(SUM(total_time_build_up), 0) + COALESCE(SUM(total_time_create), 0) + COALESCE(SUM(total_time_finish), 0) + COALESCE(SUM(total_time_chaotic), 0)
+     + COALESCE(SUM(total_time_direct), 0) + COALESCE(SUM(total_time_quick_break), 0) + COALESCE(SUM(total_time_set_play), 0) + COALESCE(SUM(total_time_transition), 0))) * 100 
+     AS percentage_of_time_in_chaotic
+
+  FROM 
+    ${ref("phases_of_play", "in_possession_phases")}
+  GROUP BY
+    team_in_possession_id,
+    --team_in_possession_shortname,
+    competition_edition_id,
+    competition_edition_name,
+    competition_id,
+    competition_name,
+    season_id,
+    season_name
+)
+
+SELECT 
+  ip_phases.team_id,
+  teams.name AS team_name,
+  ip_phases.competition_edition_id,
+  ip_phases.competition_edition_name,
+  ip_phases.competition_id,
+  ip_phases.competition_name,
+  ip_phases.season_id,
+  ip_phases.season_name,
+
+  ip_phases.percentage_of_in_possession_time_in_build_up,
+  ip_phases.percentage_of_in_possession_time_in_create,
+  ip_phases.percentage_of_in_possession_time_in_finish,
+  ip_phases.percentage_of_in_possession_time_in_transition,
+  ip_phases.percentage_of_in_possession_time_in_quick_break,
+  ip_phases.percentage_of_in_possession_time_in_direct,
+  ip_phases.percentage_of_time_in_chaotic,
+
+  oop_phases.percentage_of_out_of_possession_time_in_low_block,
+  oop_phases.percentage_of_out_of_possession_time_in_medium_block,
+  oop_phases.percentage_of_out_of_possession_time_in_high_block,
+  oop_phases.percentage_of_out_of_possession_time_defending_transition,
+  oop_phases.percentage_of_out_of_possession_time_defending_quick_break,
+  oop_phases.percentage_of_out_of_possession_time_defending_direct,
+
+  team_points.points / team_points.count_match AS points_per_match
+
+FROM 
+  oop_phases
+JOIN
+  ip_phases
+ON
+  oop_phases.team_id = ip_phases.team_id
+  AND oop_phases.competition_edition_id = ip_phases.competition_edition_id
+JOIN
+  ${ref("analysis_team_sandbox", "team_points")} as team_points
+ON
+  oop_phases.team_id = team_points.team_id
+  AND oop_phases.competition_edition_id = team_points.competition_edition_id
+JOIN
+  ${ref("metadata", "teams")} as teams
+ON
+  oop_phases.team_id = CAST(teams.id AS INT)
+WHERE ip_phases.competition_edition_name NOT IN ("ENG - Conference Premier - 2025/2026", "BRA - Brasileirão Feminino - 2024", "BRA - Série C - 2025", "CONCACAF - Champions League - 2025/2026", "SAU - King's Cup - 2025/2026", "URU - Primera Division - 2024", "URU - Primera Division - 2025", "USA - USL League 1 - 2024/2025")

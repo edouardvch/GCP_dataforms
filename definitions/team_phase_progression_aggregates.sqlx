@@ -1,0 +1,163 @@
+config {
+    type: "table",
+    schema: "phases_of_play",
+    name: "team_phase_progression_aggregates",
+    description: "",
+    bigquery: {
+        clusterBy: ["match_id", "competition_edition_id", "team_in_possession_id"]
+    },
+    assertions:{
+        nonNull: ["match_id", "competition_edition_id", "competition_id", "season_id","team_in_possession_id"]
+    }
+}
+
+WITH oop_phases AS (
+  SELECT 
+    team_out_of_possession_id AS team_id,
+    --team_out_of_possession_shortname AS team_name,
+    competition_edition_id,
+    competition_edition_name,
+    competition_id,
+    competition_name,
+    season_id,
+    season_name,
+
+    SAFE_DIVIDE(SUM(count_possession_lost_in_phase_low_block), SUM(count_low_block)) * 100 AS percentage_low_blocks_leading_to_disruption,
+    SAFE_DIVIDE(SUM(count_possession_lead_to_shot_low_block), SUM(count_low_block)) * 100 AS percentage_low_blocks_leading_opposition_shot,
+    SAFE_DIVIDE(SUM(count_possession_lead_to_goal_low_block), SUM(count_low_block)) * 100 AS percentage_low_blocks_leading_opposition_goal,
+    SAFE_DIVIDE(SUM(count_into_build_up_from_low_block), SUM(count_possession_lost_in_phase_low_block)) * 100 AS percentage_low_blocks_leading_to_build_up,
+    SAFE_DIVIDE(SUM(count_into_transition_from_low_block), SUM(count_possession_lost_in_phase_low_block)) * 100 AS percentage_low_blocks_leading_to_transition,
+
+    SAFE_DIVIDE(SUM(count_possession_lost_in_phase_medium_block), SUM(count_medium_block)) * 100 AS percentage_medium_blocks_leading_to_disruption,
+    SAFE_DIVIDE(SUM(count_possession_lead_to_shot_medium_block), SUM(count_medium_block)) * 100 AS percentage_medium_blocks_leading_opposition_shot,
+    SAFE_DIVIDE(SUM(count_possession_lead_to_goal_medium_block), SUM(count_medium_block)) * 100 AS percentage_medium_blocks_leading_opposition_goal,
+    SAFE_DIVIDE(SUM(count_into_create_from_medium_block), SUM(count_possession_lost_in_phase_medium_block)) * 100 AS percentage_medium_blocks_leading_to_create,
+    SAFE_DIVIDE(SUM(count_into_transition_from_medium_block), SUM(count_possession_lost_in_phase_medium_block)) * 100 AS percentage_medium_blocks_leading_to_transition,
+    SAFE_DIVIDE(SUM(count_into_quick_break_from_medium_block), SUM(count_possession_lost_in_phase_medium_block)) * 100 AS percentage_medium_blocks_leading_to_quick_break,
+
+    SAFE_DIVIDE(SUM(count_possession_lost_in_phase_high_block), SUM(count_high_block)) * 100 AS percentage_high_blocks_leading_to_disruption,
+    SAFE_DIVIDE(SUM(count_possession_lead_to_shot_high_block), SUM(count_high_block)) * 100 AS percentage_high_blocks_leading_opposition_shot,
+    SAFE_DIVIDE(SUM(count_possession_lead_to_goal_high_block), SUM(count_high_block)) * 100 AS percentage_high_blocks_leading_opposition_goal,
+    SAFE_DIVIDE(SUM(count_into_finish_from_high_block), SUM(count_possession_lost_in_phase_high_block)) * 100 AS percentage_high_blocks_leading_to_finish,
+    SAFE_DIVIDE(SUM(count_into_quick_break_from_high_block), SUM(count_possession_lost_in_phase_high_block)) * 100 AS percentage_high_blocks_leading_to_quick_break,
+
+  FROM 
+    ${ref("phases_of_play", "out_of_possession_phases")}
+  GROUP BY
+    team_out_of_possession_id,
+    --team_out_of_possession_shortname,
+    competition_edition_id,
+    competition_edition_name,
+    competition_id,
+    competition_name,
+    season_id,
+    season_name
+),
+
+ip_phases AS (
+  SELECT 
+    team_in_possession_id AS team_id,
+    --team_in_possession_shortname AS team_name,
+    competition_edition_id,
+    competition_edition_name,
+    competition_id,
+    competition_name,
+    season_id,
+    season_name,
+
+    SAFE_DIVIDE(SUM(count_possession_lost_in_phase_build_up), SUM(count_build_up)) * 100 AS percentage_build_up_phases_leading_to_possession_loss,
+    SAFE_DIVIDE(SUM(count_possession_lead_to_shot_build_up), SUM(count_build_up)) * 100 AS percentage_build_up_phases_leading_shot,
+    SAFE_DIVIDE(SUM(count_possession_lead_to_goal_build_up), SUM(count_build_up)) * 100 AS percentage_build_up_phases_leading_goal,
+    SAFE_DIVIDE(SUM(count_into_create_from_build_up), (SUM(count_build_up) - SUM(count_possession_lost_in_phase_build_up))) * 100 AS percentage_build_up_phases_leading_to_create,
+    SAFE_DIVIDE(SUM(count_into_direct_from_build_up), (SUM(count_build_up) - SUM(count_possession_lost_in_phase_build_up))) * 100 AS percentage_build_up_phases_leading_to_direct,
+
+    SAFE_DIVIDE(SUM(count_possession_lost_in_phase_create), SUM(count_create)) * 100 AS percentage_create_phases_leading_to_possession_loss,
+    SAFE_DIVIDE(SUM(count_possession_lead_to_shot_create), SUM(count_create)) * 100 AS percentage_create_phases_leading_shot,
+    SAFE_DIVIDE(SUM(count_possession_lead_to_goal_create), SUM(count_create)) * 100 AS percentage_create_phases_leading_goal,
+    SAFE_DIVIDE(SUM(count_into_finish_from_create), (SUM(count_create) - SUM(count_possession_lost_in_phase_create))) * 100 AS percentage_create_phases_leading_to_finish,
+    SAFE_DIVIDE(SUM(count_into_direct_from_create), (SUM(count_create) - SUM(count_possession_lost_in_phase_create))) * 100 AS percentage_create_phases_leading_to_direct,
+    SAFE_DIVIDE(SUM(count_into_build_up_from_create), (SUM(count_create) - SUM(count_possession_lost_in_phase_create))) * 100 AS percentage_create_phases_recycled_to_build_up,
+
+    SAFE_DIVIDE(SUM(count_possession_lost_in_phase_finish), SUM(count_finish)) * 100 AS percentage_finish_phases_leading_to_possession_loss,
+    SAFE_DIVIDE(SUM(count_possession_lead_to_shot_finish), SUM(count_finish)) * 100 AS percentage_finish_phases_leading_shot,
+    SAFE_DIVIDE(SUM(count_possession_lead_to_goal_finish), SUM(count_finish)) * 100 AS percentage_finish_phases_leading_goal,
+    SAFE_DIVIDE(SUM(count_into_create_from_finish), (SUM(count_finish) - SUM(count_possession_lost_in_phase_finish))) * 100 AS percentage_finish_phases_recycled_to_create,
+
+  FROM 
+    ${ref("phases_of_play", "in_possession_phases")}
+  GROUP BY
+    team_in_possession_id,
+    --team_in_possession_shortname,
+    competition_edition_id,
+    competition_edition_name,
+    competition_id,
+    competition_name,
+    season_id,
+    season_name
+)
+
+SELECT 
+  ip_phases.team_id,
+  teams.name AS team_name,
+  ip_phases.competition_edition_id,
+  ip_phases.competition_edition_name,
+  ip_phases.competition_id,
+  ip_phases.competition_name,
+  ip_phases.season_id,
+  ip_phases.season_name,
+
+  oop_phases.percentage_low_blocks_leading_to_disruption,
+  oop_phases.percentage_low_blocks_leading_opposition_shot,
+  oop_phases.percentage_low_blocks_leading_opposition_goal,
+  oop_phases.percentage_low_blocks_leading_to_build_up,
+  oop_phases.percentage_low_blocks_leading_to_transition,
+
+  oop_phases.percentage_medium_blocks_leading_to_disruption,
+  oop_phases.percentage_medium_blocks_leading_opposition_shot,
+  oop_phases.percentage_medium_blocks_leading_opposition_goal,
+  oop_phases.percentage_medium_blocks_leading_to_create,
+  oop_phases.percentage_medium_blocks_leading_to_transition,
+  oop_phases.percentage_medium_blocks_leading_to_quick_break,
+
+  oop_phases.percentage_high_blocks_leading_to_disruption,
+  oop_phases.percentage_high_blocks_leading_opposition_shot,
+  oop_phases.percentage_high_blocks_leading_opposition_goal,
+  oop_phases.percentage_high_blocks_leading_to_finish,
+  oop_phases.percentage_high_blocks_leading_to_quick_break,
+
+  ip_phases.percentage_build_up_phases_leading_to_possession_loss,
+  ip_phases.percentage_build_up_phases_leading_shot,
+  ip_phases.percentage_build_up_phases_leading_goal,
+  ip_phases.percentage_build_up_phases_leading_to_create,
+  ip_phases.percentage_build_up_phases_leading_to_direct,
+
+  ip_phases.percentage_create_phases_leading_to_possession_loss,
+  ip_phases.percentage_create_phases_leading_shot,
+  ip_phases.percentage_create_phases_leading_goal,
+  ip_phases.percentage_create_phases_leading_to_finish,
+  ip_phases.percentage_create_phases_leading_to_direct,
+  ip_phases.percentage_create_phases_recycled_to_build_up,
+
+  ip_phases.percentage_finish_phases_leading_to_possession_loss,
+  ip_phases.percentage_finish_phases_leading_shot,
+  ip_phases.percentage_finish_phases_leading_goal,
+  ip_phases.percentage_finish_phases_recycled_to_create,
+
+  team_points.points / team_points.count_match AS points_per_match
+FROM 
+  oop_phases
+JOIN
+  ip_phases
+ON
+  oop_phases.team_id = ip_phases.team_id
+  AND oop_phases.competition_edition_id = ip_phases.competition_edition_id
+JOIN
+  ${ref("analysis_team_sandbox", "team_points")} as team_points
+ON
+  oop_phases.team_id = team_points.team_id
+  AND oop_phases.competition_edition_id = team_points.competition_edition_id
+JOIN
+  ${ref("metadata", "teams")} as teams
+ON
+  oop_phases.team_id = CAST(teams.id AS INT)
+WHERE ip_phases.competition_edition_name NOT IN ("ENG - Conference Premier - 2025/2026", "BRA - Brasileirão Feminino - 2024", "BRA - Série C - 2025", "CONCACAF - Champions League - 2025/2026", "SAU - King's Cup - 2025/2026", "URU - Primera Division - 2024", "URU - Primera Division - 2025", "USA - USL League 1 - 2024/2025")

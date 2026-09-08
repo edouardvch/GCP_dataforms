@@ -1,0 +1,14 @@
+config {
+    type: "table",
+    schema: "phases_of_play",
+    name: "in_possession_phases",
+    description: "",
+    bigquery: {
+        clusterBy: ["match_id", "competition_edition_id", "team_in_possession_id"]
+    },
+    assertions:{
+        nonNull: ["match_id", "competition_edition_id", "competition_id", "season_id","team_in_possession_id"]
+    }
+}
+
+SELECT * FROM ${ref("skillcorner_external_data", "in_possession_phases")}
