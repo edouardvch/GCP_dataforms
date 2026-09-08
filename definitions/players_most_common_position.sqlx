@@ -19,7 +19,7 @@ SELECT
   role_subquery.count_match AS count_match_most_common_position,
   COALESCE(group_subquery.player_role_position_group) AS most_common_position_group, 
   group_subquery.count_match AS count_match_most_common_position_group
-FROM ${ref("players")} AS players
+FROM ${ref("metadata", "players")} AS players
 LEFT JOIN (
     SELECT player_id,
         player_role_acronym, COUNT(*) as count_match,

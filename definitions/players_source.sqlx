@@ -1,6 +1,6 @@
 config {
   type: "declaration",
   database: "analysisteam-cloudsql",
-  schema: "metadata",
+  schema: "skillcorner_external_data",
   name: "players"
 }

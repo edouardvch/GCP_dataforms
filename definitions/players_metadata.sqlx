@@ -1,0 +1,30 @@
+config {
+    type: "table",
+    schema: "metadata",
+    name: "players",
+    description: "Players infos and mapping with other competitor",
+    uniqueKey:["id"],
+    assertions:{
+        uniqueKey: ["id"],
+        nonNull: ["id"]
+    }
+}
+
+SELECT DISTINCT p.*, ph.heimspiel_id, pi.impect_id, psb.statsbomb_id, psp.statsperform_id
+FROM `skillcorner-analysis-app.external_tables.players` AS p
+JOIN
+  ${ref("skillcorner_external_data", "player_heimspiel")} AS ph
+ON
+  p.id = ph.id
+JOIN
+  ${ref("skillcorner_external_data", "player_impect")} AS pi
+ON
+  p.id = pi.id
+JOIN
+  ${ref("skillcorner_external_data", "player_statsbomb")} AS psb
+ON
+  p.id = psb.id
+JOIN
+  ${ref("skillcorner_external_data", "player_statsperform")} AS psp
+ON
+  p.id = psp.id

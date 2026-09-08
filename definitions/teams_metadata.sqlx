@@ -1,0 +1,13 @@
+config {
+    type: "table",
+    schema: "metadata",
+    name: "teams",
+    description: "Teams infos",
+    uniqueKey:["id"],
+    assertions:{
+        uniqueKey: ["id"],
+        nonNull: ["id"]
+    }
+}
+
+SELECT * FROM ${ref("skillcorner_external_data", "teams")}

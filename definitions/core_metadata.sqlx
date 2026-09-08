@@ -109,7 +109,7 @@ mmcepp_t AS (
   t.stadium,
   t.stadium_city,
   t.stadium_capacity
-  FROM ${ref("teams")} as t
+  FROM ${ref("metadata", "teams")} as t
   JOIN mmce_pp
   ON mmce_pp.team_id = CAST(t.id AS INT64)),
 
