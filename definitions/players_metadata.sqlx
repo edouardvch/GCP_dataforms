@@ -11,7 +11,7 @@ config {
 }
 
 SELECT DISTINCT p.*, ph.heimspiel_id, pi.impect_id, psb.statsbomb_id, psp.statsperform_id
-FROM `skillcorner-analysis-app.external_tables.players` AS p
+FROM ${ref("external_tables", "players")} AS p
 JOIN
   ${ref("skillcorner_external_data", "player_heimspiel")} AS ph
 ON

@@ -10,4 +10,4 @@ config {
     }
 }
 
-SELECT * FROM ${ref("skillcorner_external_data", "teams")}
+SELECT * FROM ${ref("external_tables", "teams")}

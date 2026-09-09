@@ -55,7 +55,7 @@ SELECT
     EXTRACT(MINUTE FROM start_time) +
     EXTRACT(SECOND FROM start_time) / 60) AS minutes_played
     
-    FROM ${ref("skillcorner_external_data", "performance_metadata_2")} AS pm
+    FROM ${ref("external_tables", "performance_metadata_2")} AS pm
 
 UNION DISTINCT
 

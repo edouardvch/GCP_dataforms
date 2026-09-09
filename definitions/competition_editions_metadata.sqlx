@@ -27,4 +27,4 @@ CASE
     ELSE 'Other'
   END AS competition_type,
 COALESCE(CONCAT(competition_area, '-', competition_name)) AS code
-FROM ${ref("skillcorner_external_data", "competition_editions")}
+FROM ${ref("external_tables", "competition_editions")}

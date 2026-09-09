@@ -1,6 +1,6 @@
 config {
   type: "declaration",
-  database: "analysisteam-cloudsql",
-  schema: "skillcorner_external_data",
+  database: "skillcorner-analysis-app",
+  schema: "external_tables",
   name: "players"
 }
