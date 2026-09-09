@@ -1,6 +1,6 @@
 config {
   type: "declaration",
-  database: "analysisteam-cloudsql",
-  schema: "metadata",
+  database: "skillcorner-analysis-app",
+  schema: "external_tables",
   name: "match_metadata"
 }

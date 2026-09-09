@@ -1,0 +1,21 @@
+config {
+    type: "table",
+    schema: "metadata",
+    name: "match_metadata",
+    description: "Match metadata infos",
+    bigquery: {
+        clusterBy: ["match_id", "competition_edition_id"]
+    },
+    assertions:{
+        nonNull: ["match_id", "competition_edition_id"]
+    }
+}
+
+SELECT * EXCEPT (wyscout_id)
+FROM ${ref("external_tables", "match_metadata")} AS mm
+
+UNION DISTINCT
+
+SELECT * EXCEPT (wyscout_id)
+FROM ${ref("skillcorner_external_data", "archive_match_metadata")} AS amm
+WHERE competition_edition_season_id NOT IN (29, 28)

@@ -1,6 +1,0 @@
-config {
-  type: "declaration",
-  database: "analysisteam-cloudsql",
-  schema: "metadata",
-  name: "player_performances"
-}

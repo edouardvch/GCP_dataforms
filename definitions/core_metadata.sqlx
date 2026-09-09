@@ -42,7 +42,7 @@ WITH mm_ce AS (
       SELECT DISTINCT match_id, competition_edition_id
       FROM ${ref("metadata", "match_metadata")}
     ) AS mm
-    JOIN ${ref("skillcorner_external_data", "competition_editions")} AS ce
+    JOIN ${ref("metadata", "competition_editions")} AS ce
     ON ce.id = mm.competition_edition_id
 ),
 
@@ -140,7 +140,7 @@ core_metadata AS (
   dc.frame_selection_version,
   dc.physical_v3_status
   FROM mmcepp_t
-  LEFT JOIN ${ref("data_collection")} AS dc
+  LEFT JOIN ${ref("metadata", "data_collection")} AS dc
   ON mmcepp_t.match_id = dc.match_id)
 
 SELECT * FROM core_metadata

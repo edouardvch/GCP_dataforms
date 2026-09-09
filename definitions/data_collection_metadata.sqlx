@@ -1,0 +1,11 @@
+config {
+    type: "table",
+    schema: "metadata",
+    name: "data_collection",
+    description: "Data collection",
+    assertions:{
+        nonNull: ["match_id"]
+    }
+}
+
+SELECT * FROM ${ref("skillcorner_external_data", "data_collection_errors_allowed")}

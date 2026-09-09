@@ -2,5 +2,5 @@ config {
   type: "declaration",
   database: "analysisteam-cloudsql",
   schema: "skillcorner_external_data",
-  name: "data_collection_errors_allowed"
+  name: "performance_metadata_2"
 }

@@ -2,5 +2,5 @@ config {
   type: "declaration",
   database: "analysisteam-cloudsql",
   schema: "skillcorner_external_data",
-  name: "match_metadata"
+  name: "archive_player_performance_metadata"
 }

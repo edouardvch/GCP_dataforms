@@ -1,0 +1,109 @@
+config {
+    type: "table",
+    schema: "metadata",
+    name: "player_performances",
+    description: "Player performances infos",
+    bigquery: {
+        clusterBy: ["match_id", "player_id", "team_id"]
+    },
+    assertions:{
+        nonNull: ["match_id", "player_id", "team_id"]
+    }
+}
+
+SELECT 
+  pm.* EXCEPT (wyscout_id),
+  EXTRACT(HOUR FROM TIME(pm.start_time)) * 60 +
+  EXTRACT(MINUTE FROM TIME(pm.start_time)) +
+  EXTRACT(SECOND FROM TIME(pm.start_time)) / 60 AS start_minute,
+
+  CASE 
+    WHEN pm.start_time IS NULL THEN NULL
+    ELSE LEAST(
+        EXTRACT(HOUR FROM LEAST(
+            IFNULL(pm.end_time, TIME '01:30:00'),
+            TIME '01:30:00'
+        )) * 60 +
+        EXTRACT(MINUTE FROM LEAST(
+            IFNULL(pm.end_time, TIME '01:30:00'),
+            TIME '01:30:00'
+        )) +
+        EXTRACT(SECOND FROM LEAST(
+            IFNULL(pm.end_time, TIME '01:30:00')
+        )) / 60,
+        90
+    )
+    END AS end_minute,
+    
+    (CASE 
+    WHEN pm.start_time IS NULL THEN NULL
+    ELSE LEAST(
+        EXTRACT(HOUR FROM LEAST(
+            IFNULL(pm.end_time, TIME '01:30:00'),
+            TIME '01:30:00'
+        )) * 60 +
+        EXTRACT(MINUTE FROM LEAST(
+            IFNULL(pm.end_time, TIME '01:30:00'),
+            TIME '01:30:00'
+        )) +
+        EXTRACT(SECOND FROM LEAST(
+            IFNULL(pm.end_time, TIME '01:30:00')
+        )) / 60,
+        90
+    ) END) -
+    (EXTRACT(HOUR FROM start_time) * 60 +
+    EXTRACT(MINUTE FROM start_time) +
+    EXTRACT(SECOND FROM start_time) / 60) AS minutes_played
+    
+    FROM ${ref("skillcorner_external_data", "performance_metadata_2")} AS pm
+
+UNION DISTINCT
+
+SELECT 
+  a_pm.* EXCEPT (wyscout_id),
+  EXTRACT(HOUR FROM TIME(a_pm.start_time)) * 60 +
+  EXTRACT(MINUTE FROM TIME(a_pm.start_time)) +
+  EXTRACT(SECOND FROM TIME(a_pm.start_time)) / 60 AS start_minute,
+
+  CASE 
+    WHEN a_pm.start_time IS NULL THEN NULL
+    ELSE LEAST(
+        EXTRACT(HOUR FROM LEAST(
+            IFNULL(a_pm.end_time, TIME '01:30:00'),
+            TIME '01:30:00'
+        )) * 60 +
+        EXTRACT(MINUTE FROM LEAST(
+            IFNULL(a_pm.end_time, TIME '01:30:00'),
+            TIME '01:30:00'
+        )) +
+        EXTRACT(SECOND FROM LEAST(
+            IFNULL(a_pm.end_time, TIME '01:30:00')
+        )) / 60,
+        90
+    )
+    END AS end_minute,
+    
+    (CASE 
+    WHEN a_pm.start_time IS NULL THEN NULL
+    ELSE LEAST(
+        EXTRACT(HOUR FROM LEAST(
+            IFNULL(a_pm.end_time, TIME '01:30:00'),
+            TIME '01:30:00'
+        )) * 60 +
+        EXTRACT(MINUTE FROM LEAST(
+            IFNULL(a_pm.end_time, TIME '01:30:00'),
+            TIME '01:30:00'
+        )) +
+        EXTRACT(SECOND FROM LEAST(
+            IFNULL(a_pm.end_time, TIME '01:30:00')
+        )) / 60,
+        90
+    ) END) -
+    (EXTRACT(HOUR FROM start_time) * 60 +
+    EXTRACT(MINUTE FROM start_time) +
+    EXTRACT(SECOND FROM start_time) / 60) AS minutes_played
+    
+    FROM ${ref("skillcorner_external_data", "archive_player_performance_metadata")} AS a_pm
+    JOIN ${ref("skillcorner_external_data", "archive_match_metadata")} AS mm
+    ON mm.match_id = a_pm.match_id
+    WHERE mm.competition_edition_season_id NOT IN (29, 28)
