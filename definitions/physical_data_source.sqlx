@@ -1,0 +1,6 @@
+config {
+  type: "declaration",
+  database: "skillcorner-analysis-app",
+  schema: "external_tables",
+  name: "physical_data"
+}

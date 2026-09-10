@@ -1,0 +1,149 @@
+config {
+    type: "table",
+    schema: "physical_data",
+    name: "physical_player_aggregates",
+    description: "",
+    bigquery: {
+        clusterBy: ["competition_id", "competition_edition_id", "season_id"]
+    },
+    assertions:{
+        nonNull: ["competition_id", "competition_edition_id", "season_id"]
+    }
+}
+
+WITH RankedData AS (
+    SELECT
+        phys.*,
+        players.first_name,
+        players.last_name,
+        players.short_name,
+        teams.name AS t_name, 
+        comps.name AS comp_edition_name,
+        -- Calculate ranks for Top N metrics
+        ROW_NUMBER() OVER (PARTITION BY phys.player_id, phys.team_id, phys.competition_edition_id, phys.position_group ORDER BY phys.psv99 DESC NULLS LAST) AS rank_psv99,
+        ROW_NUMBER() OVER (PARTITION BY phys.player_id, phys.team_id, phys.competition_edition_id, phys.position_group ORDER BY phys.timetohsr ASC NULLS LAST) AS rank_timetohsr,
+        ROW_NUMBER() OVER (PARTITION BY phys.player_id, phys.team_id, phys.competition_edition_id, phys.position_group ORDER BY phys.timetosprint ASC NULLS LAST) AS rank_timetosprint,
+        ROW_NUMBER() OVER (PARTITION BY phys.player_id, phys.team_id, phys.competition_edition_id, phys.position_group ORDER BY phys.timetohsrpostcod ASC NULLS LAST) AS rank_timetohsrpostcod,
+        ROW_NUMBER() OVER (PARTITION BY phys.player_id, phys.team_id, phys.competition_edition_id, phys.position_group ORDER BY phys.timetosprintpostcod ASC NULLS LAST) AS rank_timetosprintpostcod,
+        ROW_NUMBER() OVER (PARTITION BY phys.player_id, phys.team_id, phys.competition_edition_id, phys.position_group ORDER BY phys.timeto505around90 ASC NULLS LAST) AS rank_timeto505_90,
+        ROW_NUMBER() OVER (PARTITION BY phys.player_id, phys.team_id, phys.competition_edition_id, phys.position_group ORDER BY phys.timeto505around180 ASC NULLS LAST) AS rank_timeto505_180
+    FROM 
+        ${ref("physical_data", "physical_data")} AS phys
+    JOIN
+        ${ref("metadata", "players")} AS players 
+        ON phys.player_id = players.id
+    JOIN
+        ${ref("metadata", "teams")} AS teams 
+        ON phys.team_id = CAST(teams.id AS INT)
+    JOIN
+       ${ref("metadata", "competition_editions")} AS comps 
+       ON phys.competition_edition_id = comps.id
+    WHERE
+        phys.minutes_full_all >= 60
+        AND phys.physical_check_passed = True
+)
+
+SELECT
+    player_id,
+    CONCAT(first_name, ' ', last_name) AS player_name,
+    short_name AS player_short_name,
+    team_id,
+    t_name AS team_name,
+    competition_edition_id,
+    comp_edition_name AS competition_edition_name,
+    competition_id,
+    competition_name,
+    season_id,
+    season_name,
+    position_group AS player_role_position_group,
+    
+    -- Aggregates & Counts
+    AVG(minutes_full_all) AS avg_minutes_played,
+    COUNT(*) AS count_match,
+    
+    -- Per 90 Metrics
+    (SUM(total_distance_full_all) / NULLIF(SUM(minutes_full_all), 0)) * 90 AS total_distance_per_90,
+    (SUM(running_distance_full_all) / NULLIF(SUM(minutes_full_all), 0)) * 90 AS running_distance_per_90,
+    (SUM(hsr_distance_full_all) / NULLIF(SUM(minutes_full_all), 0)) * 90 AS hsr_distance_per_90,
+    (SUM(sprint_distance_full_all) / NULLIF(SUM(minutes_full_all), 0)) * 90 AS sprint_distance_per_90,
+    (SUM(hi_distance_full_all) / NULLIF(SUM(minutes_full_all), 0)) * 90 AS hi_distance_per_90,
+    (SUM(hsr_count_full_all) / NULLIF(SUM(minutes_full_all), 0)) * 90 AS count_hsr_per_90,
+    (SUM(sprint_count_full_all) / NULLIF(SUM(minutes_full_all), 0)) * 90 AS count_sprint_per_90,
+    (SUM(hi_count_full_all) / NULLIF(SUM(minutes_full_all), 0)) * 90 AS hi_count_per_90,
+    (SUM(cod_count_full_all) / NULLIF(SUM(minutes_full_all), 0)) * 90 AS count_cod_per_90,
+    (SUM(explacceltohsr_count_full_all) / NULLIF(SUM(minutes_full_all), 0)) * 90 AS count_explosive_accel_to_hsr_per_90,
+    (SUM(explacceltosprint_count_full_all) / NULLIF(SUM(minutes_full_all), 0)) * 90 AS count_explosive_accel_to_sprint_per_90,
+
+    -- Standard Averages
+    AVG(psv99) AS avg_peak_sprint_velocity_99th_percentile,
+    AVG(timetohsr) AS avg_minimum_time_to_hsr,
+    AVG(timetosprint) AS avg_minimum_time_to_sprint,
+    AVG(timetohsrpostcod) AS avg_minimum_time_to_hsr_post_cod, 
+    AVG(timetosprintpostcod) AS avg_minimum_time_to_sprint_post_cod,
+
+    -- Top 5 Metric
+    CASE 
+        WHEN COUNT(CASE WHEN rank_psv99 <= 5 AND psv99 IS NOT NULL THEN 1 END) >= 5 
+        THEN AVG(CASE WHEN rank_psv99 <= 5 THEN psv99 END) 
+        ELSE NULL 
+    END AS avg_top_5_peak_sprint_velocity_99th_percentile,
+
+    -- Top 3 Basic Time Metrics
+    CASE 
+        WHEN COUNT(CASE WHEN rank_timetohsr <= 3 AND timetohsr IS NOT NULL THEN 1 END) >= 3 
+        THEN AVG(CASE WHEN rank_timetohsr <= 3 THEN timetohsr END) 
+        ELSE NULL 
+    END AS avg_top_3_minimum_time_to_hsr,
+
+    CASE 
+        WHEN COUNT(CASE WHEN rank_timetosprint <= 3 AND timetosprint IS NOT NULL THEN 1 END) >= 3 
+        THEN AVG(CASE WHEN rank_timetosprint <= 3 THEN timetosprint END) 
+        ELSE NULL 
+    END AS avg_top_3_minimum_time_to_sprint,
+
+    -- Top 3 Post-COD Metrics
+    CASE 
+        WHEN COUNT(CASE WHEN rank_timetohsrpostcod <= 3 AND timetohsrpostcod IS NOT NULL THEN 1 END) >= 3 
+        THEN AVG(CASE WHEN rank_timetohsrpostcod <= 3 THEN timetohsrpostcod END) 
+        ELSE NULL 
+    END AS avg_top_3_minimum_time_to_hsr_post_cod,
+
+    CASE 
+        WHEN COUNT(CASE WHEN rank_timetosprintpostcod <= 3 AND timetosprintpostcod IS NOT NULL THEN 1 END) >= 3 
+        THEN AVG(CASE WHEN rank_timetosprintpostcod <= 3 THEN timetosprintpostcod END) 
+        ELSE NULL 
+    END AS avg_top_3_minimum_time_to_sprint_post_cod,
+
+    -- Top 3 Agility (505) Metrics
+    CASE 
+        WHEN COUNT(CASE WHEN rank_timeto505_90 <= 3 AND timeto505around90 IS NOT NULL THEN 1 END) >= 3 
+        THEN AVG(CASE WHEN rank_timeto505_90 <= 3 THEN timeto505around90 END) 
+        ELSE NULL 
+    END AS avg_top_3_minimum_time_to_505_around_90,
+
+    CASE 
+        WHEN COUNT(CASE WHEN rank_timeto505_180 <= 3 AND timeto505around180 IS NOT NULL THEN 1 END) >= 3 
+        THEN AVG(CASE WHEN rank_timeto505_180 <= 3 THEN timeto505around180 END) 
+        ELSE NULL 
+    END AS avg_top_3_minimum_time_to_505_around_180,
+
+    -- Possession Metrics
+    (SUM(total_distance_full_tip) / NULLIF(SUM(minutes_full_tip), 0)) AS meters_per_minute_tip,
+    (SUM(total_distance_full_otip) / NULLIF(SUM(minutes_full_otip), 0)) AS meters_per_minute_otip
+
+FROM 
+    RankedData
+GROUP BY
+    player_id, 
+    first_name, 
+    last_name, 
+    short_name, 
+    team_id, 
+    t_name, 
+    competition_edition_id, 
+    comp_edition_name, 
+    competition_id, 
+    competition_name, 
+    season_id, 
+    season_name, 
+    position_group
