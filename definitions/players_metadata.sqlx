@@ -12,19 +12,19 @@ config {
 
 SELECT DISTINCT p.* EXCEPT (last_modified), ph.heimspiel_id, pi.impect_id, psb.statsbomb_id, psp.statsperform_id
 FROM ${ref("external_tables", "players")} AS p
-JOIN
+LEFT JOIN
   ${ref("skillcorner_external_data", "player_heimspiel")} AS ph
 ON
   p.id = ph.id
-JOIN
+LEFT JOIN
   ${ref("skillcorner_external_data", "player_impect")} AS pi
 ON
   p.id = pi.id
-JOIN
+LEFT JOIN
   ${ref("skillcorner_external_data", "player_statsbomb")} AS psb
 ON
   p.id = psb.id
-JOIN
+LEFT JOIN
   ${ref("skillcorner_external_data", "player_statsperform")} AS psp
 ON
   p.id = psp.id
