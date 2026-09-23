@@ -1,0 +1,169 @@
+config {
+    type: "table",
+    schema: "dynamic_events_ip",
+    name: "line_breaking_passes_player_aggregates",
+    description: "Line breaking passes player aggregates",
+    bigquery: {
+        clusterBy: ["player_id", "team_id", "competition_edition_id"]
+    },
+    assertions:{
+        nonNull: ["player_id", "team_id", "competition_edition_id"]
+    }
+}
+
+SELECT
+  CAST(de.player_in_possession_id AS INT64) AS player_id,
+  CONCAT(players.first_name, ' ', players.last_name) AS player_name,
+  players.short_name AS player_short_name,
+  phys.team_id,
+  teams.name AS team_name,
+  phys.competition_edition_id,
+  ce.name AS competition_edition_name,
+  phys.competition_id,
+  phys.competition_name,
+  phys.season_id,
+  phys.season_name,
+  phys.position_group AS player_role_position_group,
+  AVG(phys.minutes_full_all) AS avg_minutes_played,
+  AVG(phys.minutes_full_tip) AS avg_minutes_played_tip,
+  COUNT(*) AS count_match,
+
+  -- All passing options.
+  (SUM(de.count_pass_opportunities_passing_option) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_per_30_tip,
+  (SUM(de.count_pass_attempts_passing_option) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_per_30_tip,
+  (SUM(de.count_completed_passes_passing_option) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_per_30_tip,
+  (SUM(de.count_pass_attempts_passing_option) / NULLIF(SUM(de.count_pass_opportunities_passing_option), 0)) * 100 AS pass_attempt_percentage,
+  (SUM(de.count_completed_passes_passing_option) / NULLIF(SUM(de.count_pass_attempts_passing_option), 0)) * 100 AS pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_passing_option) / NULLIF(SUM(de.count_pass_attempts_passing_option), 0)) AS avg_xthreat_per_pass_attempt,
+  (SUM(de.xpass_completion_pass_attempts_passing_option) / NULLIF(SUM(de.count_pass_attempts_passing_option), 0)) AS avg_xpass_completion_per_pass_attempt,
+  (SUM(de.count_dangerous_pass_attempts_passing_option) / NULLIF(SUM(de.count_pass_attempts_passing_option), 0)) * 100 AS percentage_pass_attempts_dangerous,
+  (SUM(de.count_difficult_pass_attempts_passing_option) / NULLIF(SUM(de.count_pass_attempts_passing_option), 0)) * 100 AS percentage_pass_attempts_difficult,
+
+  -- Through the lines.
+  (SUM(de.count_pass_opportunities_through_first_line + de.count_pass_opportunities_through_second_last_line + de.count_pass_opportunities_through_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_through_the_lines_per_30_tip,
+  (SUM(de.count_pass_attempts_through_first_line + de.count_pass_attempts_through_second_last_line + de.count_pass_attempts_through_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_through_the_lines_per_30_tip,
+  (SUM(de.count_completed_passes_through_first_line + de.count_completed_passes_through_second_last_line + de.count_completed_passes_through_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_through_the_lines_per_30_tip,
+  (SUM(de.count_pass_attempts_through_first_line + de.count_pass_attempts_through_second_last_line + de.count_pass_attempts_through_last_line) / NULLIF(SUM(de.count_pass_opportunities_through_first_line + de.count_pass_opportunities_through_second_last_line + de.count_pass_opportunities_through_last_line), 0)) * 100 AS through_the_lines_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_through_first_line + de.count_completed_passes_through_second_last_line + de.count_completed_passes_through_last_line) / NULLIF(SUM(de.count_pass_attempts_through_first_line + de.count_pass_attempts_through_second_last_line + de.count_pass_attempts_through_last_line), 0)) * 100 AS through_the_lines_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_through_first_line + de.xthreat_pass_attempts_through_second_last_line + de.xthreat_pass_attempts_through_last_line) / NULLIF(SUM(de.count_pass_attempts_through_first_line + de.count_pass_attempts_through_second_last_line + de.count_pass_attempts_through_last_line), 0)) AS avg_xthreat_per_pass_attempt_through_the_lines,
+  (SUM(de.xpass_completion_pass_attempts_through_first_line + de.xpass_completion_pass_attempts_through_second_last_line + de.xpass_completion_pass_attempts_through_last_line) / NULLIF(SUM(de.count_pass_attempts_through_first_line + de.count_pass_attempts_through_second_last_line + de.count_pass_attempts_through_last_line), 0)) AS avg_xpass_completion_per_pass_attempt_through_the_lines,
+  (SUM(de.count_dangerous_pass_attempts_through_first_line + de.count_dangerous_pass_attempts_through_second_last_line + de.count_dangerous_pass_attempts_through_last_line) / NULLIF(SUM(de.count_pass_attempts_through_first_line + de.count_pass_attempts_through_second_last_line + de.count_pass_attempts_through_last_line), 0)) * 100 AS percentage_pass_attempts_through_the_lines_dangerous,
+  (SUM(de.count_difficult_pass_attempts_through_first_line + de.count_difficult_pass_attempts_through_second_last_line + de.count_difficult_pass_attempts_through_last_line) / NULLIF(SUM(de.count_pass_attempts_through_first_line + de.count_pass_attempts_through_second_last_line + de.count_pass_attempts_through_last_line), 0)) * 100 AS percentage_pass_attempts_through_the_lines_difficult,
+
+  -- Around the lines.
+  (SUM(de.count_pass_opportunities_around_first_line + de.count_pass_opportunities_around_second_last_line + de.count_pass_opportunities_around_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_around_the_lines_per_30_tip,
+  (SUM(de.count_pass_attempts_around_first_line + de.count_pass_attempts_around_second_last_line + de.count_pass_attempts_around_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_around_the_lines_per_30_tip,
+  (SUM(de.count_completed_passes_around_first_line + de.count_completed_passes_around_second_last_line + de.count_completed_passes_around_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_around_the_lines_per_30_tip,
+  (SUM(de.count_pass_attempts_around_first_line + de.count_pass_attempts_around_second_last_line + de.count_pass_attempts_around_last_line) / NULLIF(SUM(de.count_pass_opportunities_around_first_line + de.count_pass_opportunities_around_second_last_line + de.count_pass_opportunities_around_last_line), 0)) * 100 AS around_the_lines_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_around_first_line + de.count_completed_passes_around_second_last_line + de.count_completed_passes_around_last_line) / NULLIF(SUM(de.count_pass_attempts_around_first_line + de.count_pass_attempts_around_second_last_line + de.count_pass_attempts_around_last_line), 0)) * 100 AS around_the_lines_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_around_first_line + de.xthreat_pass_attempts_around_second_last_line + de.xthreat_pass_attempts_around_last_line) / NULLIF(SUM(de.count_pass_attempts_around_first_line + de.count_pass_attempts_around_second_last_line + de.count_pass_attempts_around_last_line), 0)) AS avg_xthreat_per_pass_attempt_around_the_lines,
+  (SUM(de.xpass_completion_pass_attempts_around_first_line + de.xpass_completion_pass_attempts_around_second_last_line + de.xpass_completion_pass_attempts_around_last_line) / NULLIF(SUM(de.count_pass_attempts_around_first_line + de.count_pass_attempts_around_second_last_line + de.count_pass_attempts_around_last_line), 0)) AS avg_xpass_completion_per_pass_attempt_around_the_lines,
+  (SUM(de.count_dangerous_pass_attempts_around_first_line + de.count_dangerous_pass_attempts_around_second_last_line + de.count_dangerous_pass_attempts_around_last_line) / NULLIF(SUM(de.count_pass_attempts_around_first_line + de.count_pass_attempts_around_second_last_line + de.count_pass_attempts_around_last_line), 0)) * 100 AS percentage_pass_attempts_around_the_lines_dangerous,
+  (SUM(de.count_difficult_pass_attempts_around_first_line + de.count_difficult_pass_attempts_around_second_last_line + de.count_difficult_pass_attempts_around_last_line) / NULLIF(SUM(de.count_pass_attempts_around_first_line + de.count_pass_attempts_around_second_last_line + de.count_pass_attempts_around_last_line), 0)) * 100 AS percentage_pass_attempts_around_the_lines_difficult,
+
+  -- Through first line.
+  (SUM(de.count_pass_opportunities_through_first_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_through_first_line_per_30_tip,
+  (SUM(de.count_pass_attempts_through_first_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_through_first_line_per_30_tip,
+  (SUM(de.count_completed_passes_through_first_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_through_first_line_per_30_tip,
+  (SUM(de.count_pass_attempts_through_first_line) / NULLIF(SUM(de.count_pass_opportunities_through_first_line), 0)) * 100 AS through_first_line_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_through_first_line) / NULLIF(SUM(de.count_pass_attempts_through_first_line), 0)) * 100 AS through_first_line_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_through_first_line) / NULLIF(SUM(de.count_pass_attempts_through_first_line), 0)) AS avg_xthreat_per_pass_attempt_through_first_line,
+  (SUM(de.xpass_completion_pass_attempts_through_first_line) / NULLIF(SUM(de.count_pass_attempts_through_first_line), 0)) AS avg_xpass_completion_per_pass_attempt_through_first_line,
+  (SUM(de.count_dangerous_pass_attempts_through_first_line) / NULLIF(SUM(de.count_pass_attempts_through_first_line), 0)) * 100 AS percentage_pass_attempts_through_first_line_dangerous,
+  (SUM(de.count_difficult_pass_attempts_through_first_line) / NULLIF(SUM(de.count_pass_attempts_through_first_line), 0)) * 100 AS percentage_pass_attempts_through_first_line_difficult,
+
+  -- Around first line.
+  (SUM(de.count_pass_opportunities_around_first_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_around_first_line_per_30_tip,
+  (SUM(de.count_pass_attempts_around_first_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_around_first_line_per_30_tip,
+  (SUM(de.count_completed_passes_around_first_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_around_first_line_per_30_tip,
+  (SUM(de.count_pass_attempts_around_first_line) / NULLIF(SUM(de.count_pass_opportunities_around_first_line), 0)) * 100 AS around_first_line_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_around_first_line) / NULLIF(SUM(de.count_pass_attempts_around_first_line), 0)) * 100 AS around_first_line_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_around_first_line) / NULLIF(SUM(de.count_pass_attempts_around_first_line), 0)) AS avg_xthreat_per_pass_attempt_around_first_line,
+  (SUM(de.xpass_completion_pass_attempts_around_first_line) / NULLIF(SUM(de.count_pass_attempts_around_first_line), 0)) AS avg_xpass_completion_per_pass_attempt_around_first_line,
+  (SUM(de.count_dangerous_pass_attempts_around_first_line) / NULLIF(SUM(de.count_pass_attempts_around_first_line), 0)) * 100 AS percentage_pass_attempts_around_first_line_dangerous,
+  (SUM(de.count_difficult_pass_attempts_around_first_line) / NULLIF(SUM(de.count_pass_attempts_around_first_line), 0)) * 100 AS percentage_pass_attempts_around_first_line_difficult,
+
+  -- Through second last line.
+  (SUM(de.count_pass_opportunities_through_second_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_through_second_last_line_per_30_tip,
+  (SUM(de.count_pass_attempts_through_second_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_through_second_last_line_per_30_tip,
+  (SUM(de.count_completed_passes_through_second_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_through_second_last_line_per_30_tip,
+  (SUM(de.count_pass_attempts_through_second_last_line) / NULLIF(SUM(de.count_pass_opportunities_through_second_last_line), 0)) * 100 AS through_second_last_line_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_through_second_last_line) / NULLIF(SUM(de.count_pass_attempts_through_second_last_line), 0)) * 100 AS through_second_last_line_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_through_second_last_line) / NULLIF(SUM(de.count_pass_attempts_through_second_last_line), 0)) AS avg_xthreat_per_pass_attempt_through_second_last_line,
+  (SUM(de.xpass_completion_pass_attempts_through_second_last_line) / NULLIF(SUM(de.count_pass_attempts_through_second_last_line), 0)) AS avg_xpass_completion_per_pass_attempt_through_second_last_line,
+  (SUM(de.count_dangerous_pass_attempts_through_second_last_line) / NULLIF(SUM(de.count_pass_attempts_through_second_last_line), 0)) * 100 AS percentage_pass_attempts_through_second_last_line_dangerous,
+  (SUM(de.count_difficult_pass_attempts_through_second_last_line) / NULLIF(SUM(de.count_pass_attempts_through_second_last_line), 0)) * 100 AS percentage_pass_attempts_through_second_last_line_difficult,
+
+  -- Around second last line.
+  (SUM(de.count_pass_opportunities_around_second_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_around_second_last_line_per_30_tip,
+  (SUM(de.count_pass_attempts_around_second_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_around_second_last_line_per_30_tip,
+  (SUM(de.count_completed_passes_around_second_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_around_second_last_line_per_30_tip,
+  (SUM(de.count_pass_attempts_around_second_last_line) / NULLIF(SUM(de.count_pass_opportunities_around_second_last_line), 0)) * 100 AS around_second_last_line_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_around_second_last_line) / NULLIF(SUM(de.count_pass_attempts_around_second_last_line), 0)) * 100 AS around_second_last_line_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_around_second_last_line) / NULLIF(SUM(de.count_pass_attempts_around_second_last_line), 0)) AS avg_xthreat_per_pass_attempt_around_second_last_line,
+  (SUM(de.xpass_completion_pass_attempts_around_second_last_line) / NULLIF(SUM(de.count_pass_attempts_around_second_last_line), 0)) AS avg_xpass_completion_per_pass_attempt_around_second_last_line,
+  (SUM(de.count_dangerous_pass_attempts_around_second_last_line) / NULLIF(SUM(de.count_pass_attempts_around_second_last_line), 0)) * 100 AS percentage_pass_attempts_around_second_last_line_dangerous,
+  (SUM(de.count_difficult_pass_attempts_around_second_last_line) / NULLIF(SUM(de.count_pass_attempts_around_second_last_line), 0)) * 100 AS percentage_pass_attempts_around_second_last_line_difficult,
+
+  -- Through last line.
+  (SUM(de.count_pass_opportunities_through_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_through_last_line_per_30_tip,
+  (SUM(de.count_pass_attempts_through_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_through_last_line_per_30_tip,
+  (SUM(de.count_completed_passes_through_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_through_last_line_per_30_tip,
+  (SUM(de.count_pass_attempts_through_last_line) / NULLIF(SUM(de.count_pass_opportunities_through_last_line), 0)) * 100 AS through_last_line_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_through_last_line) / NULLIF(SUM(de.count_pass_attempts_through_last_line), 0)) * 100 AS through_last_line_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_through_last_line) / NULLIF(SUM(de.count_pass_attempts_through_last_line), 0)) AS avg_xthreat_per_pass_attempt_through_last_line,
+  (SUM(de.xpass_completion_pass_attempts_through_last_line) / NULLIF(SUM(de.count_pass_attempts_through_last_line), 0)) AS avg_xpass_completion_per_pass_attempt_through_last_line,
+  (SUM(de.count_dangerous_pass_attempts_through_last_line) / NULLIF(SUM(de.count_pass_attempts_through_last_line), 0)) * 100 AS percentage_pass_attempts_through_last_line_dangerous,
+  (SUM(de.count_difficult_pass_attempts_through_last_line) / NULLIF(SUM(de.count_pass_attempts_through_last_line), 0)) * 100 AS percentage_pass_attempts_through_last_line_difficult,
+
+  -- Around second last line
+  (SUM(de.count_pass_opportunities_around_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_around_last_line_per_30_tip,
+  (SUM(de.count_pass_attempts_around_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_around_last_line_per_30_tip,
+  (SUM(de.count_completed_passes_around_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_around_last_line_per_30_tip,
+  (SUM(de.count_pass_attempts_around_last_line) / NULLIF(SUM(de.count_pass_opportunities_around_last_line), 0)) * 100 AS around_last_line_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_around_last_line) / NULLIF(SUM(de.count_pass_attempts_around_last_line), 0)) * 100 AS around_last_line_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_around_last_line) / NULLIF(SUM(de.count_pass_attempts_around_last_line), 0)) AS avg_xthreat_per_pass_attempt_around_last_line,
+  (SUM(de.xpass_completion_pass_attempts_around_last_line) / NULLIF(SUM(de.count_pass_attempts_around_last_line), 0)) AS avg_xpass_completion_per_pass_attempt_around_last_line,
+  (SUM(de.count_dangerous_pass_attempts_around_last_line) / NULLIF(SUM(de.count_pass_attempts_around_last_line), 0)) * 100 AS percentage_pass_attempts_around_last_line_dangerous,
+  (SUM(de.count_difficult_pass_attempts_around_last_line) / NULLIF(SUM(de.count_pass_attempts_around_last_line), 0)) * 100 AS percentage_pass_attempts_around_last_line_difficult
+
+
+FROM 
+  ${ref("dynamic_events_ip", "line_breaking_passes")} AS de
+JOIN
+  ${ref("physical_data", "physical_data")}  AS phys
+ON
+  de.player_in_possession_id = phys.player_id
+  AND de.match_id = phys.match_id
+JOIN
+  ${ref("metadata", "players")} AS players
+ON
+  de.player_in_possession_id = players.id
+JOIN
+  ${ref("metadata", "teams")} AS teams
+ON
+  phys.team_id = CAST(teams.id AS INT)
+JOIN
+  ${ref("metadata", "match_metadata")} AS match 
+ON
+  de.match_id = match.match_id
+JOIN
+  ${ref("metadata", "competition_editions")} AS ce
+ON
+  ce.id = phys.competition_edition_id
+WHERE
+  phys.minutes_full_all >= 60
+GROUP BY
+  de.player_in_possession_id,
+  phys.team_id,
+  phys.competition_edition_id,
+  competition_edition_name,
+  phys.competition_id,
+  phys.competition_name,
+  phys.season_id,
+  phys.season_name,
+  phys.position_group,
+  players.first_name,
+  players.last_name,
+  players.short_name,
+  teams.name

@@ -1,0 +1,79 @@
+config {
+    type: "table",
+    schema: "dynamic_events_ip",
+    name: "possessions_player_aggregates",
+    description: "Possession player aggregates",
+    bigquery: {
+        clusterBy: ["player_id", "team_id", "competition_edition_id"]
+    },
+    assertions:{
+        nonNull: ["player_id", "team_id", "competition_edition_id"]
+    }
+}
+
+SELECT
+  de.player_id,
+  CONCAT(players.first_name, ' ', players.last_name) AS player_name,
+  players.short_name AS player_short_name,
+  phys.team_id,
+  teams.name AS team_name,
+  phys.competition_edition_id,
+  ce.name AS competition_edition_name,
+  phys.competition_id,
+  phys.competition_name,
+  phys.season_id,
+  phys.season_name,
+  phys.position_group AS player_role_position_group,
+  AVG(phys.minutes_full_all) AS avg_minutes_played,
+  AVG(phys.minutes_full_tip) AS avg_minutes_played_tip,
+  COUNT(*) AS count_match,
+
+  -- All possessions
+  (SUM(de.count_all_possessions) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_possessions_per_30_tip,
+  (SUM(de.count_one_touch_passes_all_possessions) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_one_touch_passes_per_30_tip,
+  (SUM(de.quick_passes_all_possessions) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_quick_passes_per_30_tip,
+  (SUM(de.received_in_tight_space_all_possessions) / NULLIF(SUM(de.count_all_possessions), 0)) * 100 AS percentage_possessions_in_low_separation_start,
+  (SUM(de.received_in_open_space_all_possessions) / NULLIF(SUM(de.count_all_possessions), 0)) * 100 AS percentage_possessions_in_high_separation_start,
+  (SUM(de.8m_carry_all_possessions) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_8m_carries_per_30_tip,
+  (SUM(de.8m_carry_at_speed_all_possessions) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_8m_carries_above_running_speed_per_30_tip,
+  (SUM(de.forward_momentum_all_possessions) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_forward_momentum_per_30_tip
+
+FROM 
+  ${ref("dynamic_events_ip", "possessions")} AS de
+JOIN
+ ${ref("physical_data", "physical_data")}  AS phys
+ON
+  de.player_id = phys.player_id
+  AND de.match_id = phys.match_id
+JOIN
+  ${ref("metadata", "players")} AS players
+ON
+  de.player_id = players.id
+JOIN
+  ${ref("metadata", "teams")} AS teams
+ON
+  phys.team_id = CAST(teams.id AS INT)
+JOIN
+  ${ref("metadata", "match_metadata")} AS match 
+ON
+  de.match_id = match.match_id
+JOIN
+  ${ref("metadata", "competition_editions")} AS ce
+ON
+  ce.id = phys.competition_edition_id
+WHERE
+  phys.minutes_full_all >= 60
+GROUP BY
+  de.player_id,
+  phys.team_id,
+  phys.competition_edition_id,
+  competition_edition_name,
+  phys.competition_id,
+  phys.competition_name,
+  phys.season_id,
+  phys.season_name,
+  phys.position_group,
+  players.first_name,
+  players.last_name,
+  players.short_name,
+  teams.name

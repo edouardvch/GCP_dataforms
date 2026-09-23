@@ -1,0 +1,149 @@
+config {
+    type: "table",
+    schema: "dynamic_events_ip",
+    name: "line_breaking_options_player_aggregates",
+    description: "Line breaking options player aggregates",
+    bigquery: {
+        clusterBy: ["player_id", "team_id", "competition_edition_id"]
+    },
+    assertions:{
+        nonNull: ["player_id", "team_id", "competition_edition_id"]
+    }
+}
+
+SELECT
+  de.player_id,
+  CONCAT(players.first_name, ' ', players.last_name) AS player_name,
+  players.short_name AS player_short_name,
+  phys.team_id,
+  teams.name AS team_name,
+  phys.competition_edition_id,
+  ce.name AS competition_edition_name,
+  phys.competition_id,
+  phys.competition_name,
+  phys.season_id,
+  phys.season_name,
+  phys.position_group AS player_role_position_group,
+  AVG(phys.minutes_full_all) AS avg_minutes_played,
+  AVG(phys.minutes_full_tip) AS avg_minutes_played_tip,
+  COUNT(*) AS count_match,
+
+  -- All passing options.
+  (SUM(de.count_passing_option) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_passing_options_per_30_tip,
+  (SUM(de.count_targeted_passing_option) / NULLIF(SUM(de.count_passing_option), 0)) * 100 AS percentage_passing_options_targeted,
+  (SUM(de.count_received_passing_option) / NULLIF(SUM(de.count_targeted_passing_option), 0)) * 100 AS percentage_passing_options_received,
+  (SUM(de.xthreat_passing_option) / NULLIF(SUM(de.count_passing_option), 0)) AS avg_xthreat_per_passing_option,
+  (SUM(de.xpass_completion_passing_option) / NULLIF(SUM(de.count_passing_option), 0)) AS avg_xpass_completion_passing_option,
+  (SUM(de.count_dangerous_passing_option) / NULLIF(SUM(de.count_passing_option), 0)) * 100 AS percentage_passing_options_dangerous,
+  (SUM(de.count_difficult_passing_option) / NULLIF(SUM(de.count_passing_option), 0)) * 100 AS percentage_passing_options_difficult_target,
+
+  -- Through all lines
+  (SUM(de.count_through_first_line + de.count_through_second_last_line + de.count_through_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_options_through_the_lines_per_30_tip,
+  (SUM(de.count_targeted_through_first_line + de.count_targeted_through_second_last_line + de.count_targeted_through_last_line) / NULLIF(SUM(de.count_through_first_line + de.count_through_second_last_line + de.count_through_last_line), 0)) * 100 AS percentage_options_through_the_lines_targeted,
+  (SUM(de.count_received_through_first_line + de.count_received_through_second_last_line + de.count_received_through_last_line) / NULLIF(SUM(de.count_targeted_through_first_line + de.count_targeted_through_second_last_line + de.count_targeted_through_last_line), 0)) * 100 AS percentage_options_through_the_lines_received,
+  (SUM(de.xthreat_through_first_line + de.xthreat_through_second_last_line + de.xthreat_through_last_line) / NULLIF(SUM(de.count_through_first_line + de.count_through_second_last_line + de.count_through_last_line), 0)) AS avg_xthreat_per_option_through_the_lines,
+  (SUM(de.xpass_completion_through_first_line + de.xpass_completion_through_second_last_line + de.xpass_completion_through_last_line) / NULLIF(SUM(de.count_through_first_line + de.count_through_second_last_line + de.count_through_last_line), 0)) AS avg_xpass_completion_option_through_the_lines,
+  (SUM(de.count_dangerous_through_first_line + de.count_dangerous_through_second_last_line + de.count_dangerous_through_last_line) / NULLIF(SUM(de.count_through_first_line + de.count_through_second_last_line + de.count_through_last_line), 0)) * 100 AS percentage_options_through_the_lines_dangerous,
+  (SUM(de.count_difficult_through_first_line + de.count_difficult_through_second_last_line + de.count_difficult_through_last_line) / NULLIF(SUM(de.count_through_first_line + de.count_through_second_last_line + de.count_through_last_line), 0)) * 100 AS percentage_options_through_the_lines_difficult_target,
+
+  -- Around all lines
+  (SUM(de.count_around_first_line + de.count_around_second_last_line + de.count_around_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_options_around_the_lines_per_30_tip,
+  (SUM(de.count_targeted_around_first_line + de.count_targeted_around_second_last_line + de.count_targeted_around_last_line) / NULLIF(SUM(de.count_around_first_line + de.count_around_second_last_line + de.count_around_last_line), 0)) * 100 AS percentage_options_around_the_lines_targeted,
+  (SUM(de.count_received_around_first_line + de.count_received_around_second_last_line + de.count_received_around_last_line) / NULLIF(SUM(de.count_targeted_around_first_line + de.count_targeted_around_second_last_line + de.count_targeted_around_last_line), 0)) * 100 AS percentage_options_around_the_lines_received,
+  (SUM(de.xthreat_around_first_line + de.xthreat_around_second_last_line + de.xthreat_around_last_line) / NULLIF(SUM(de.count_around_first_line + de.count_around_second_last_line + de.count_around_last_line), 0)) AS avg_xthreat_per_option_around_the_lines,
+  (SUM(de.xpass_completion_around_first_line + de.xpass_completion_around_second_last_line + de.xpass_completion_around_last_line) / NULLIF(SUM(de.count_around_first_line + de.count_around_second_last_line + de.count_around_last_line), 0)) AS avg_xpass_completion_option_around_the_lines,
+  (SUM(de.count_dangerous_around_first_line + de.count_dangerous_around_second_last_line + de.count_dangerous_around_last_line) / NULLIF(SUM(de.count_around_first_line + de.count_around_second_last_line + de.count_around_last_line), 0)) * 100 AS percentage_options_around_the_lines_dangerous,
+  (SUM(de.count_difficult_around_first_line + de.count_difficult_around_second_last_line + de.count_difficult_around_last_line) / NULLIF(SUM(de.count_around_first_line + de.count_around_second_last_line + de.count_around_last_line), 0)) * 100 AS percentage_options_around_the_lines_difficult_target,
+
+  -- Through First Line
+  (SUM(de.count_through_first_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_options_through_first_line_per_30_tip,
+  (SUM(de.count_targeted_through_first_line) / NULLIF(SUM(de.count_through_first_line), 0)) * 100 AS percentage_options_through_first_line_targeted,
+  (SUM(de.count_received_through_first_line) / NULLIF(SUM(de.count_targeted_through_first_line), 0)) * 100 AS percentage_options_through_first_line_received,
+  (SUM(de.xthreat_through_first_line) / NULLIF(SUM(de.count_through_first_line), 0)) AS avg_xthreat_per_option_through_first_line,
+  (SUM(de.xpass_completion_through_first_line) / NULLIF(SUM(de.count_through_first_line), 0)) AS avg_xpass_completion_option_through_first_line,
+  (SUM(de.count_dangerous_through_first_line) / NULLIF(SUM(de.count_through_first_line), 0)) * 100 AS percentage_options_through_first_line_dangerous,
+  (SUM(de.count_difficult_through_first_line) / NULLIF(SUM(de.count_through_first_line), 0)) * 100 AS percentage_options_through_first_line_difficult_target,
+
+  -- Around First Line
+  (SUM(de.count_around_first_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_options_around_first_line_per_30_tip,
+  (SUM(de.count_targeted_around_first_line) / NULLIF(SUM(de.count_around_first_line), 0)) * 100 AS percentage_options_around_first_line_targeted,
+  (SUM(de.count_received_around_first_line) / NULLIF(SUM(de.count_targeted_around_first_line), 0)) * 100 AS percentage_options_around_first_line_received,
+  (SUM(de.xthreat_around_first_line) / NULLIF(SUM(de.count_around_first_line), 0)) AS avg_xthreat_per_option_around_first_line,
+  (SUM(de.xpass_completion_around_first_line) / NULLIF(SUM(de.count_around_first_line), 0)) AS avg_xpass_completion_option_around_first_line,
+  (SUM(de.count_dangerous_around_first_line) / NULLIF(SUM(de.count_around_first_line), 0)) * 100 AS percentage_options_around_first_line_dangerous,
+  (SUM(de.count_difficult_around_first_line) / NULLIF(SUM(de.count_around_first_line), 0)) * 100 AS percentage_options_around_first_line_difficult_target,
+
+  -- Through Second Last Line
+  (SUM(de.count_through_second_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_options_through_second_last_line_per_30_tip,
+  (SUM(de.count_targeted_through_second_last_line) / NULLIF(SUM(de.count_through_second_last_line), 0)) * 100 AS percentage_options_through_second_last_line_targeted,
+  (SUM(de.count_received_through_second_last_line) / NULLIF(SUM(de.count_targeted_through_second_last_line), 0)) * 100 AS percentage_options_through_second_last_line_received,
+  (SUM(de.xthreat_through_second_last_line) / NULLIF(SUM(de.count_through_second_last_line), 0)) AS avg_xthreat_per_option_through_second_last_line,
+  (SUM(de.xpass_completion_through_second_last_line) / NULLIF(SUM(de.count_through_second_last_line), 0)) AS avg_xpass_completion_option_through_second_last_line,
+  (SUM(de.count_dangerous_through_second_last_line) / NULLIF(SUM(de.count_through_second_last_line), 0)) * 100 AS percentage_options_through_second_last_line_dangerous,
+  (SUM(de.count_difficult_through_second_last_line) / NULLIF(SUM(de.count_through_second_last_line), 0)) * 100 AS percentage_options_through_second_last_line_difficult_target,
+
+  -- Around Second Last Line
+  (SUM(de.count_around_second_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_options_around_second_last_line_per_30_tip,
+  (SUM(de.count_targeted_around_second_last_line) / NULLIF(SUM(de.count_around_second_last_line), 0)) * 100 AS percentage_options_around_second_last_line_targeted,
+  (SUM(de.count_received_around_second_last_line) / NULLIF(SUM(de.count_targeted_around_second_last_line), 0)) * 100 AS percentage_options_around_second_last_line_received,
+  (SUM(de.xthreat_around_second_last_line) / NULLIF(SUM(de.count_around_second_last_line), 0)) AS avg_xthreat_per_option_around_second_last_line,
+  (SUM(de.xpass_completion_around_second_last_line) / NULLIF(SUM(de.count_around_second_last_line), 0)) AS avg_xpass_completion_option_around_second_last_line,
+  (SUM(de.count_dangerous_around_second_last_line) / NULLIF(SUM(de.count_around_second_last_line), 0)) * 100 AS percentage_options_around_second_last_line_dangerous,
+  (SUM(de.count_difficult_around_second_last_line) / NULLIF(SUM(de.count_around_second_last_line), 0)) * 100 AS percentage_options_around_second_last_line_difficult_target,
+
+  -- Through Last Line
+  (SUM(de.count_through_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_options_through_last_line_per_30_tip,
+  (SUM(de.count_targeted_through_last_line) / NULLIF(SUM(de.count_through_last_line), 0)) * 100 AS percentage_options_through_last_line_targeted,
+  (SUM(de.count_received_through_last_line) / NULLIF(SUM(de.count_targeted_through_last_line), 0)) * 100 AS percentage_options_through_last_line_received,
+  (SUM(de.xthreat_through_last_line) / NULLIF(SUM(de.count_through_last_line), 0)) AS avg_xthreat_per_option_through_last_line,
+  (SUM(de.xpass_completion_through_last_line) / NULLIF(SUM(de.count_through_last_line), 0)) AS avg_xpass_completion_option_through_last_line,
+  (SUM(de.count_dangerous_through_last_line) / NULLIF(SUM(de.count_through_last_line), 0)) * 100 AS percentage_options_through_last_line_dangerous,
+  (SUM(de.count_difficult_through_last_line) / NULLIF(SUM(de.count_through_last_line), 0)) * 100 AS percentage_options_through_last_line_difficult_target,
+
+  -- Around Last Line
+  (SUM(de.count_around_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_options_around_last_line_per_30_tip,
+  (SUM(de.count_targeted_around_last_line) / NULLIF(SUM(de.count_around_last_line), 0)) * 100 AS percentage_options_around_last_line_targeted,
+  (SUM(de.count_received_around_last_line) / NULLIF(SUM(de.count_targeted_around_last_line), 0)) * 100 AS percentage_options_around_last_line_received,
+  (SUM(de.xthreat_around_last_line) / NULLIF(SUM(de.count_around_last_line), 0)) AS avg_xthreat_per_option_around_last_line,
+  (SUM(de.xpass_completion_around_last_line) / NULLIF(SUM(de.count_around_last_line), 0)) AS avg_xpass_completion_option_around_last_line,
+  (SUM(de.count_dangerous_around_last_line) / NULLIF(SUM(de.count_around_last_line), 0)) * 100 AS percentage_options_around_last_line_dangerous,
+  (SUM(de.count_difficult_around_last_line) / NULLIF(SUM(de.count_around_last_line), 0)) * 100 AS percentage_options_around_last_line_difficult_target,
+FROM 
+  ${ref("dynamic_events_ip", "line_breaking_options")} AS de
+JOIN
+  ${ref("physical_data", "physical_data")}  AS phys
+ON
+  de.player_id = phys.player_id
+  AND de.match_id = phys.match_id
+JOIN
+  ${ref("metadata", "players")} AS players
+ON
+  de.player_id = players.id
+JOIN
+  ${ref("metadata", "teams")} AS teams
+ON
+  phys.team_id = CAST(teams.id AS INT)
+JOIN
+  ${ref("metadata", "match_metadata")} AS match 
+ON
+  de.match_id = match.match_id
+JOIN
+  ${ref("metadata", "competition_editions")} AS ce
+ON
+  ce.id = phys.competition_edition_id
+WHERE
+  phys.minutes_full_all >= 60
+GROUP BY
+  de.player_id,
+  phys.team_id,
+  phys.competition_edition_id,
+  competition_edition_name,
+  phys.competition_id,
+  phys.competition_name,
+  phys.season_id,
+  phys.season_name,
+  phys.position_group,
+  players.first_name,
+  players.last_name,
+  players.short_name,
+  teams.name

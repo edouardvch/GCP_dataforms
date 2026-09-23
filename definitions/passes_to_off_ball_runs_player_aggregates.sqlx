@@ -1,0 +1,181 @@
+config {
+    type: "table",
+    schema: "dynamic_events_ip",
+    name: "passes_to_off_ball_runs_player_aggregates",
+    description: "Passes to off ball runs player aggregates",
+    bigquery: {
+        clusterBy: ["player_id", "team_id", "competition_edition_id"]
+    },
+    assertions:{
+        nonNull: ["player_id", "team_id", "competition_edition_id"]
+    }
+}
+
+SELECT
+  CAST(de.player_in_possession_id AS INT64) AS player_id,
+  CONCAT(players.first_name, ' ', players.last_name) AS player_name,
+  players.short_name AS player_short_name,
+  phys.team_id,
+  teams.name AS team_name,
+  phys.competition_edition_id,
+  ce.name AS competition_edition_name,
+  phys.competition_id,
+  phys.competition_name,
+  phys.season_id,
+  phys.season_name,
+  phys.position_group AS player_role_position_group,
+  AVG(phys.minutes_full_all) AS avg_minutes_played,
+  AVG(phys.minutes_full_tip) AS avg_minutes_played_tip,
+  COUNT(*) AS count_match,
+
+  -- Off Ball Runs.
+  (SUM(de.count_pass_opportunities_off_ball_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_to_off_ball_runs_per_30_tip,
+  (SUM(de.count_pass_attempts_off_ball_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_to_off_ball_runs_per_30_tip,
+  (SUM(de.count_completed_passes_off_ball_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_to_off_ball_runs_per_30_tip,
+  (SUM(de.count_pass_attempts_off_ball_runs) / NULLIF(SUM(de.count_pass_opportunities_off_ball_runs), 0)) * 100 AS off_ball_runs_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_off_ball_runs) / NULLIF(SUM(de.count_pass_attempts_off_ball_runs), 0)) * 100 AS off_ball_runs_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_off_ball_runs) / NULLIF(SUM(de.count_pass_attempts_off_ball_runs), 0)) AS avg_xthreat_per_pass_attempt_to_off_ball_runs,
+  (SUM(de.xpass_completion_pass_attempts_off_ball_runs) / NULLIF(SUM(de.count_pass_attempts_off_ball_runs), 0)) AS avg_xpass_completion_per_pass_attempt_to_off_ball_runs,
+  (SUM(de.count_dangerous_pass_attempts_off_ball_runs) / NULLIF(SUM(de.count_pass_attempts_off_ball_runs), 0)) * 100 AS percentage_pass_attempt_to_off_ball_runs_dangerous,
+  (SUM(de.count_difficult_pass_attempts_off_ball_runs) / NULLIF(SUM(de.count_pass_attempts_off_ball_runs), 0)) * 100 AS percentage_pass_attempt_to_off_ball_runs_difficult,
+
+  -- cross_receiver
+  (SUM(de.count_pass_opportunities_cross_receiver) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_to_cross_receiver_per_30_tip,
+  (SUM(de.count_pass_attempts_cross_receiver) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_to_cross_receiver_per_30_tip,
+  (SUM(de.count_completed_passes_cross_receiver) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_to_cross_receiver_per_30_tip,
+  (SUM(de.count_pass_attempts_cross_receiver) / NULLIF(SUM(de.count_pass_opportunities_cross_receiver), 0)) * 100 AS cross_receiver_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_cross_receiver) / NULLIF(SUM(de.count_pass_attempts_cross_receiver), 0)) * 100 AS cross_receiver_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_cross_receiver) / NULLIF(SUM(de.count_pass_attempts_cross_receiver), 0)) AS avg_xthreat_per_pass_attempt_to_cross_receiver,
+  (SUM(de.xpass_completion_pass_attempts_cross_receiver) / NULLIF(SUM(de.count_pass_attempts_cross_receiver), 0)) AS avg_xpass_completion_per_pass_attempt_to_cross_receiver,
+  (SUM(de.count_dangerous_pass_attempts_cross_receiver) / NULLIF(SUM(de.count_pass_attempts_cross_receiver), 0)) * 100 AS percentage_pass_attempt_to_cross_receiver_dangerous,
+  (SUM(de.count_difficult_pass_attempts_cross_receiver) / NULLIF(SUM(de.count_pass_attempts_cross_receiver), 0)) * 100 AS percentage_pass_attempt_to_cross_receiver_difficult,
+
+  -- runs_in_behind
+  (SUM(de.count_pass_opportunities_runs_in_behind) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_to_runs_in_behind_per_30_tip,
+  (SUM(de.count_pass_attempts_runs_in_behind) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_to_runs_in_behind_per_30_tip,
+  (SUM(de.count_completed_passes_runs_in_behind) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_to_runs_in_behind_per_30_tip,
+  (SUM(de.count_pass_attempts_runs_in_behind) / NULLIF(SUM(de.count_pass_opportunities_runs_in_behind), 0)) * 100 AS runs_in_behind_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_runs_in_behind) / NULLIF(SUM(de.count_pass_attempts_runs_in_behind), 0)) * 100 AS runs_in_behind_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_runs_in_behind) / NULLIF(SUM(de.count_pass_attempts_runs_in_behind), 0)) AS avg_xthreat_per_pass_attempt_to_runs_in_behind,
+  (SUM(de.xpass_completion_pass_attempts_runs_in_behind) / NULLIF(SUM(de.count_pass_attempts_runs_in_behind), 0)) AS avg_xpass_completion_per_pass_attempt_to_runs_in_behind,
+  (SUM(de.count_dangerous_pass_attempts_runs_in_behind) / NULLIF(SUM(de.count_pass_attempts_runs_in_behind), 0)) * 100 AS percentage_pass_attempt_to_runs_in_behind_dangerous,
+  (SUM(de.count_difficult_pass_attempts_runs_in_behind) / NULLIF(SUM(de.count_pass_attempts_runs_in_behind), 0)) * 100 AS percentage_pass_attempt_to_runs_in_behind_difficult,
+
+  -- runs_ahead_of_the_ball
+  (SUM(de.count_pass_opportunities_runs_ahead_of_the_ball) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_to_runs_ahead_of_the_ball_per_30_tip,
+  (SUM(de.count_pass_attempts_runs_ahead_of_the_ball) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_to_runs_ahead_of_the_ball_per_30_tip,
+  (SUM(de.count_completed_passes_runs_ahead_of_the_ball) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_to_runs_ahead_of_the_ball_per_30_tip,
+  (SUM(de.count_pass_attempts_runs_ahead_of_the_ball) / NULLIF(SUM(de.count_pass_opportunities_runs_ahead_of_the_ball), 0)) * 100 AS runs_ahead_of_the_ball_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_runs_ahead_of_the_ball) / NULLIF(SUM(de.count_pass_attempts_runs_ahead_of_the_ball), 0)) * 100 AS runs_ahead_of_the_ball_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_runs_ahead_of_the_ball) / NULLIF(SUM(de.count_pass_attempts_runs_ahead_of_the_ball), 0)) AS avg_xthreat_per_pass_attempt_to_runs_ahead_of_the_ball,
+  (SUM(de.xpass_completion_pass_attempts_runs_ahead_of_the_ball) / NULLIF(SUM(de.count_pass_attempts_runs_ahead_of_the_ball), 0)) AS avg_xpass_completion_per_pass_attempt_to_runs_ahead_of_the_ball,
+  (SUM(de.count_dangerous_pass_attempts_runs_ahead_of_the_ball) / NULLIF(SUM(de.count_pass_attempts_runs_ahead_of_the_ball), 0)) * 100 AS percentage_pass_attempt_to_runs_ahead_of_the_ball_dangerous,
+  (SUM(de.count_difficult_pass_attempts_runs_ahead_of_the_ball) / NULLIF(SUM(de.count_pass_attempts_runs_ahead_of_the_ball), 0)) * 100 AS percentage_pass_attempt_to_runs_ahead_of_the_ball_difficult,
+
+  -- support_runs
+  (SUM(de.count_pass_opportunities_support_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_to_support_runs_per_30_tip,
+  (SUM(de.count_pass_attempts_support_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_to_support_runs_per_30_tip,
+  (SUM(de.count_completed_passes_support_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_to_support_runs_per_30_tip,
+  (SUM(de.count_pass_attempts_support_runs) / NULLIF(SUM(de.count_pass_opportunities_support_runs), 0)) * 100 AS support_runs_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_support_runs) / NULLIF(SUM(de.count_pass_attempts_support_runs), 0)) * 100 AS support_runs_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_support_runs) / NULLIF(SUM(de.count_pass_attempts_support_runs), 0)) AS avg_xthreat_per_pass_attempt_to_support_runs,
+  (SUM(de.xpass_completion_pass_attempts_support_runs) / NULLIF(SUM(de.count_pass_attempts_support_runs), 0)) AS avg_xpass_completion_per_pass_attempt_to_support_runs,
+  (SUM(de.count_dangerous_pass_attempts_support_runs) / NULLIF(SUM(de.count_pass_attempts_support_runs), 0)) * 100 AS percentage_pass_attempt_to_support_runs_dangerous,
+  (SUM(de.count_difficult_pass_attempts_support_runs) / NULLIF(SUM(de.count_pass_attempts_support_runs), 0)) * 100 AS percentage_pass_attempt_to_support_runs_difficult,
+
+  -- overlap_runs
+  (SUM(de.count_pass_opportunities_overlap_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_to_overlap_runs_per_30_tip,
+  (SUM(de.count_pass_attempts_overlap_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_to_overlap_runs_per_30_tip,
+  (SUM(de.count_completed_passes_overlap_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_to_overlap_runs_per_30_tip,
+  (SUM(de.count_pass_attempts_overlap_runs) / NULLIF(SUM(de.count_pass_opportunities_overlap_runs), 0)) * 100 AS overlap_runs_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_overlap_runs) / NULLIF(SUM(de.count_pass_attempts_overlap_runs), 0)) * 100 AS overlap_runs_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_overlap_runs) / NULLIF(SUM(de.count_pass_attempts_overlap_runs), 0)) AS avg_xthreat_per_pass_attempt_to_overlap_runs,
+  (SUM(de.xpass_completion_pass_attempts_overlap_runs) / NULLIF(SUM(de.count_pass_attempts_overlap_runs), 0)) AS avg_xpass_completion_per_pass_attempt_to_overlap_runs,
+  (SUM(de.count_dangerous_pass_attempts_overlap_runs) / NULLIF(SUM(de.count_pass_attempts_overlap_runs), 0)) * 100 AS percentage_pass_attempt_to_overlap_runs_dangerous,
+  (SUM(de.count_difficult_pass_attempts_overlap_runs) / NULLIF(SUM(de.count_pass_attempts_overlap_runs), 0)) * 100 AS percentage_pass_attempt_to_overlap_runs_difficult,
+
+  -- underlap_runs
+  (SUM(de.count_pass_opportunities_underlap_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_to_underlap_runs_per_30_tip,
+  (SUM(de.count_pass_attempts_underlap_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_to_underlap_runs_per_30_tip,
+  (SUM(de.count_completed_passes_underlap_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_to_underlap_runs_per_30_tip,
+  (SUM(de.count_pass_attempts_underlap_runs) / NULLIF(SUM(de.count_pass_opportunities_underlap_runs), 0)) * 100 AS underlap_runs_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_underlap_runs) / NULLIF(SUM(de.count_pass_attempts_underlap_runs), 0)) * 100 AS underlap_runs_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_underlap_runs) / NULLIF(SUM(de.count_pass_attempts_underlap_runs), 0)) AS avg_xthreat_per_pass_attempt_to_underlap_runs,
+  (SUM(de.xpass_completion_pass_attempts_underlap_runs) / NULLIF(SUM(de.count_pass_attempts_underlap_runs), 0)) AS avg_xpass_completion_per_pass_attempt_to_underlap_runs,
+  (SUM(de.count_dangerous_pass_attempts_underlap_runs) / NULLIF(SUM(de.count_pass_attempts_underlap_runs), 0)) * 100 AS percentage_pass_attempt_to_underlap_runs_dangerous,
+  (SUM(de.count_difficult_pass_attempts_underlap_runs) / NULLIF(SUM(de.count_pass_attempts_underlap_runs), 0)) * 100 AS percentage_pass_attempt_to_underlap_runs_difficult,
+
+  -- pulling_half_space_runs
+  (SUM(de.count_pass_opportunities_pulling_half_space_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_to_pulling_half_space_runs_per_30_tip,
+  (SUM(de.count_pass_attempts_pulling_half_space_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_to_pulling_half_space_runs_per_30_tip,
+  (SUM(de.count_completed_passes_pulling_half_space_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_to_pulling_half_space_runs_per_30_tip,
+  (SUM(de.count_pass_attempts_pulling_half_space_runs) / NULLIF(SUM(de.count_pass_opportunities_pulling_half_space_runs), 0)) * 100 AS pulling_half_space_runs_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_pulling_half_space_runs) / NULLIF(SUM(de.count_pass_attempts_pulling_half_space_runs), 0)) * 100 AS pulling_half_space_runs_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_pulling_half_space_runs) / NULLIF(SUM(de.count_pass_attempts_pulling_half_space_runs), 0)) AS avg_xthreat_per_pass_attempt_to_pulling_half_space_runs,
+  (SUM(de.xpass_completion_pass_attempts_pulling_half_space_runs) / NULLIF(SUM(de.count_pass_attempts_pulling_half_space_runs), 0)) AS avg_xpass_completion_per_pass_attempt_to_pulling_half_space_runs,
+  (SUM(de.count_dangerous_pass_attempts_pulling_half_space_runs) / NULLIF(SUM(de.count_pass_attempts_pulling_half_space_runs), 0)) * 100 AS percentage_pass_attempt_to_pulling_half_space_runs_dangerous,
+  (SUM(de.count_difficult_pass_attempts_pulling_half_space_runs) / NULLIF(SUM(de.count_pass_attempts_pulling_half_space_runs), 0)) * 100 AS percentage_pass_attempt_to_pulling_half_space_runs_difficult,
+
+  -- pulling_wide_runs
+  (SUM(de.count_pass_opportunities_pulling_wide_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_to_pulling_wide_runs_per_30_tip,
+  (SUM(de.count_pass_attempts_pulling_wide_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_to_pulling_wide_runs_per_30_tip,
+  (SUM(de.count_completed_passes_pulling_wide_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_to_pulling_wide_runs_per_30_tip,
+  (SUM(de.count_pass_attempts_pulling_wide_runs) / NULLIF(SUM(de.count_pass_opportunities_pulling_wide_runs), 0)) * 100 AS pulling_wide_runs_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_pulling_wide_runs) / NULLIF(SUM(de.count_pass_attempts_pulling_wide_runs), 0)) * 100 AS pulling_wide_runs_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_pulling_wide_runs) / NULLIF(SUM(de.count_pass_attempts_pulling_wide_runs), 0)) AS avg_xthreat_per_pass_attempt_to_pulling_wide_runs,
+  (SUM(de.xpass_completion_pass_attempts_pulling_wide_runs) / NULLIF(SUM(de.count_pass_attempts_pulling_wide_runs), 0)) AS avg_xpass_completion_per_pass_attempt_to_pulling_wide_runs,
+  (SUM(de.count_dangerous_pass_attempts_pulling_wide_runs) / NULLIF(SUM(de.count_pass_attempts_pulling_wide_runs), 0)) * 100 AS percentage_pass_attempt_to_pulling_wide_runs_dangerous,
+  (SUM(de.count_difficult_pass_attempts_pulling_wide_runs) / NULLIF(SUM(de.count_pass_attempts_pulling_wide_runs), 0)) * 100 AS percentage_pass_attempt_to_pulling_wide_runs_difficult,
+
+  -- coming_short_runs
+  (SUM(de.count_pass_opportunities_coming_short_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_opportunities_to_coming_short_runs_per_30_tip,
+  (SUM(de.count_pass_attempts_coming_short_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pass_attempts_to_coming_short_runs_per_30_tip,
+  (SUM(de.count_completed_passes_coming_short_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_completed_passes_to_coming_short_runs_per_30_tip,
+  (SUM(de.count_pass_attempts_coming_short_runs) / NULLIF(SUM(de.count_pass_opportunities_coming_short_runs), 0)) * 100 AS coming_short_runs_pass_attempt_percentage,
+  (SUM(de.count_completed_passes_coming_short_runs) / NULLIF(SUM(de.count_pass_attempts_coming_short_runs), 0)) * 100 AS coming_short_runs_pass_completion_percentage,
+  (SUM(de.xthreat_pass_attempts_coming_short_runs) / NULLIF(SUM(de.count_pass_attempts_coming_short_runs), 0)) AS avg_xthreat_per_pass_attempt_to_coming_short_runs,
+  (SUM(de.xpass_completion_pass_attempts_coming_short_runs) / NULLIF(SUM(de.count_pass_attempts_coming_short_runs), 0)) AS avg_xpass_completion_per_pass_attempt_to_coming_short_runs,
+  (SUM(de.count_dangerous_pass_attempts_coming_short_runs) / NULLIF(SUM(de.count_pass_attempts_coming_short_runs), 0)) * 100 AS percentage_pass_attempt_to_coming_short_runs_dangerous,
+  (SUM(de.count_difficult_pass_attempts_coming_short_runs) / NULLIF(SUM(de.count_pass_attempts_coming_short_runs), 0)) * 100 AS percentage_pass_attempt_to_coming_short_runs_difficult
+
+
+
+FROM 
+  ${ref("dynamic_events_ip", "passes_to_off_ball_runs")} AS de
+JOIN
+  ${ref("physical_data", "physical_data")}  AS phys
+ON
+  de.player_in_possession_id = phys.player_id
+  AND de.match_id = phys.match_id
+JOIN
+  ${ref("metadata", "players")} AS players
+ON
+  de.player_in_possession_id = players.id
+JOIN
+  ${ref("metadata", "teams")} AS teams
+ON
+  phys.team_id = CAST(teams.id AS INT)
+JOIN
+  ${ref("metadata", "match_metadata")} AS match 
+ON
+  de.match_id = match.match_id
+JOIN
+  ${ref("metadata", "competition_editions")} AS ce
+ON
+  ce.id = phys.competition_edition_id
+WHERE
+  phys.minutes_full_all >= 60
+GROUP BY
+  de.player_in_possession_id,
+  phys.team_id,
+  phys.competition_edition_id,
+  competition_edition_name,
+  phys.competition_id,
+  phys.competition_name,
+  phys.season_id,
+  phys.season_name,
+  phys.position_group,
+  players.first_name,
+  players.last_name,
+  players.short_name,
+  teams.name

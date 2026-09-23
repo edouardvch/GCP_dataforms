@@ -1,0 +1,223 @@
+config {
+    type: "table",
+    schema: "dynamic_events_ip",
+    name: "off_ball_runs_player_aggregates",
+    description: "Off ball runs player aggregates",
+    bigquery: {
+        clusterBy: ["player_id", "team_id", "competition_edition_id"]
+    },
+    assertions:{
+        nonNull: ["player_id", "team_id", "competition_edition_id"]
+    }
+}
+
+SELECT
+  de.player_id,
+  CONCAT(players.first_name, ' ', players.last_name) AS player_name,
+  players.short_name AS player_short_name,
+  phys.team_id,
+  teams.name AS team_name,
+  phys.competition_edition_id,
+  ce.name AS competition_edition_name,
+  phys.competition_id,
+  phys.competition_name,
+  phys.season_id,
+  phys.season_name,
+  phys.position_group AS player_role_position_group,
+  AVG(phys.minutes_full_all) AS avg_minutes_played,
+  AVG(phys.minutes_full_tip) AS avg_minutes_played_tip,
+  COUNT(*) AS count_match,
+
+  -- All off-ball runs
+  (SUM(de.count_off_ball_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_off_ball_runs_per_30_tip,
+  (SUM(de.count_targeted_off_ball_runs) / NULLIF(SUM(de.count_off_ball_runs), 0)) * 100 AS percentage_off_ball_runs_targeted,
+  (SUM(de.count_received_off_ball_runs) / NULLIF(SUM(de.count_targeted_off_ball_runs), 0)) * 100 AS percentage_off_ball_runs_received,
+  (SUM(de.xthreat_off_ball_runs) / NULLIF(SUM(de.count_off_ball_runs), 0)) AS avg_xthreat_per_off_ball_run,
+  (SUM(de.xpass_completion_off_ball_runs) / NULLIF(SUM(de.count_off_ball_runs), 0)) AS avg_xpass_completion_off_ball_run,
+  (SUM(de.count_dangerous_off_ball_runs) / NULLIF(SUM(de.count_off_ball_runs), 0)) * 100 AS percentage_off_ball_runs_dangerous,
+  (SUM(de.count_difficult_off_ball_runs) / NULLIF(SUM(de.count_off_ball_runs), 0)) * 100 AS percentage_off_ball_runs_difficult_target,
+  AVG(de.avg_speed_avg_off_ball_runs) AS avg_speed_off_ball_runs,
+  AVG(de.avg_distance_covered_off_ball_runs) AS avg_distance_covered_off_ball_runs,
+  (SUM(de.count_hsr_off_ball_runs) / NULLIF(SUM(de.count_off_ball_runs), 0)) * 100 AS percentage_off_ball_runs_hsr,
+  (SUM(de.count_sprint_off_ball_runs) / NULLIF(SUM(de.count_off_ball_runs), 0)) * 100 AS percentage_off_ball_runs_sprint,
+  ((SUM(de.count_sprint_off_ball_runs) + SUM(de.count_hsr_off_ball_runs)) / NULLIF(SUM(de.count_off_ball_runs), 0)) * 100 AS percentage_off_ball_runs_sprint_hsr,
+
+  -- cross_receiver
+  (SUM(de.count_cross_receiver) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_cross_receiver_per_30_tip,
+  (SUM(de.count_targeted_cross_receiver) / NULLIF(SUM(de.count_cross_receiver), 0)) * 100 AS percentage_cross_receiver_targeted,
+  (SUM(de.count_received_cross_receiver) / NULLIF(SUM(de.count_targeted_cross_receiver), 0)) * 100 AS percentage_cross_receiver_received,
+  (SUM(de.xthreat_cross_receiver) / NULLIF(SUM(de.count_cross_receiver), 0)) AS avg_xthreat_per_cross_receiver,
+  (SUM(de.xpass_completion_cross_receiver) / NULLIF(SUM(de.count_cross_receiver), 0)) AS avg_xpass_completion_cross_receiver,
+  (SUM(de.count_dangerous_cross_receiver) / NULLIF(SUM(de.count_cross_receiver), 0)) * 100 AS percentage_cross_receiver_dangerous,
+  (SUM(de.count_difficult_cross_receiver) / NULLIF(SUM(de.count_cross_receiver), 0)) * 100 AS percentage_cross_receiver_difficult_target,
+  AVG(de.avg_speed_avg_cross_receiver) AS avg_speed_cross_receiver,
+  AVG(de.avg_distance_covered_cross_receiver) AS avg_distance_covered_cross_receiver,
+  (SUM(de.count_hsr_cross_receiver) / NULLIF(SUM(de.count_cross_receiver), 0)) * 100 AS percentage_cross_receiver_hsr,
+  (SUM(de.count_sprint_cross_receiver) / NULLIF(SUM(de.count_cross_receiver), 0)) * 100 AS percentage_cross_receiver_sprint,
+  ((SUM(de.count_sprint_cross_receiver) + SUM(de.count_hsr_cross_receiver)) / NULLIF(SUM(de.count_cross_receiver), 0)) * 100 AS percentage_cross_receiver_sprint_hsr,
+
+  -- runs_in_behind
+  (SUM(de.count_runs_in_behind) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_runs_in_behind_per_30_tip,
+  (SUM(de.count_targeted_runs_in_behind) / NULLIF(SUM(de.count_runs_in_behind), 0)) * 100 AS percentage_runs_in_behind_targeted,
+  (SUM(de.count_received_runs_in_behind) / NULLIF(SUM(de.count_targeted_runs_in_behind), 0)) * 100 AS percentage_runs_in_behind_received,
+  (SUM(de.xthreat_runs_in_behind) / NULLIF(SUM(de.count_runs_in_behind), 0)) AS avg_xthreat_per_runs_in_behind,
+  (SUM(de.xpass_completion_runs_in_behind) / NULLIF(SUM(de.count_runs_in_behind), 0)) AS avg_xpass_completion_runs_in_behind,
+  (SUM(de.count_dangerous_runs_in_behind) / NULLIF(SUM(de.count_runs_in_behind), 0)) * 100 AS percentage_runs_in_behind_dangerous,
+  (SUM(de.count_difficult_runs_in_behind) / NULLIF(SUM(de.count_runs_in_behind), 0)) * 100 AS percentage_runs_in_behind_difficult_target,
+  AVG(de.avg_speed_avg_runs_in_behind) AS avg_speed_runs_in_behind,
+  AVG(de.avg_distance_covered_runs_in_behind) AS avg_distance_covered_runs_in_behind,
+  (SUM(de.count_hsr_runs_in_behind) / NULLIF(SUM(de.count_runs_in_behind), 0)) * 100 AS percentage_runs_in_behind_hsr,
+  (SUM(de.count_sprint_runs_in_behind) / NULLIF(SUM(de.count_runs_in_behind), 0)) * 100 AS percentage_runs_in_behind_sprint,
+  ((SUM(de.count_sprint_runs_in_behind) + SUM(de.count_hsr_runs_in_behind)) / NULLIF(SUM(de.count_runs_in_behind), 0)) * 100 AS percentage_runs_in_behind_sprint_hsr,
+
+  -- runs_ahead_of_the_ball
+  (SUM(de.count_runs_ahead_of_the_ball) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_runs_ahead_of_the_ball_per_30_tip,
+  (SUM(de.count_targeted_runs_ahead_of_the_ball) / NULLIF(SUM(de.count_runs_ahead_of_the_ball), 0)) * 100 AS percentage_runs_ahead_of_the_ball_targeted,
+  (SUM(de.count_received_runs_ahead_of_the_ball) / NULLIF(SUM(de.count_targeted_runs_ahead_of_the_ball), 0)) * 100 AS percentage_runs_ahead_of_the_ball_received,
+  (SUM(de.xthreat_runs_ahead_of_the_ball) / NULLIF(SUM(de.count_runs_ahead_of_the_ball), 0)) AS avg_xthreat_per_runs_ahead_of_the_ball,
+  (SUM(de.xpass_completion_runs_ahead_of_the_ball) / NULLIF(SUM(de.count_runs_ahead_of_the_ball), 0)) AS avg_xpass_completion_runs_ahead_of_the_ball,
+  (SUM(de.count_dangerous_runs_ahead_of_the_ball) / NULLIF(SUM(de.count_runs_ahead_of_the_ball), 0)) * 100 AS percentage_runs_ahead_of_the_ball_dangerous,
+  (SUM(de.count_difficult_runs_ahead_of_the_ball) / NULLIF(SUM(de.count_runs_ahead_of_the_ball), 0)) * 100 AS percentage_runs_ahead_of_the_ball_difficult_target,
+  AVG(de.avg_speed_avg_runs_ahead_of_the_ball) AS avg_speed_runs_ahead_of_the_ball,
+  AVG(de.avg_distance_covered_runs_ahead_of_the_ball) AS avg_distance_covered_runs_ahead_of_the_ball,
+  (SUM(de.count_hsr_runs_ahead_of_the_ball) / NULLIF(SUM(de.count_runs_ahead_of_the_ball), 0)) * 100 AS percentage_runs_ahead_of_the_ball_hsr,
+  (SUM(de.count_sprint_runs_ahead_of_the_ball) / NULLIF(SUM(de.count_runs_ahead_of_the_ball), 0)) * 100 AS percentage_runs_ahead_of_the_ball_sprint,
+  ((SUM(de.count_sprint_runs_ahead_of_the_ball) + SUM(de.count_hsr_runs_ahead_of_the_ball)) / NULLIF(SUM(de.count_runs_ahead_of_the_ball), 0)) * 100 AS percentage_runs_ahead_of_the_ball_sprint_hsr,
+
+  -- support_runs
+  (SUM(de.count_support_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_support_runs_per_30_tip,
+  (SUM(de.count_targeted_support_runs) / NULLIF(SUM(de.count_support_runs), 0)) * 100 AS percentage_support_runs_targeted,
+  (SUM(de.count_received_support_runs) / NULLIF(SUM(de.count_targeted_support_runs), 0)) * 100 AS percentage_support_runs_received,
+  (SUM(de.xthreat_support_runs) / NULLIF(SUM(de.count_support_runs), 0)) AS avg_xthreat_per_support_runs,
+  (SUM(de.xpass_completion_support_runs) / NULLIF(SUM(de.count_support_runs), 0)) AS avg_xpass_completion_support_runs,
+  (SUM(de.count_dangerous_support_runs) / NULLIF(SUM(de.count_support_runs), 0)) * 100 AS percentage_support_runs_dangerous,
+  (SUM(de.count_difficult_support_runs) / NULLIF(SUM(de.count_support_runs), 0)) * 100 AS percentage_support_runs_difficult_target,
+  AVG(de.avg_speed_avg_support_runs) AS avg_speed_support_runs,
+  AVG(de.avg_distance_covered_support_runs) AS avg_distance_covered_support_runs,
+  (SUM(de.count_hsr_support_runs) / NULLIF(SUM(de.count_support_runs), 0)) * 100 AS percentage_support_runs_hsr,
+  (SUM(de.count_sprint_support_runs) / NULLIF(SUM(de.count_support_runs), 0)) * 100 AS percentage_support_runs_sprint,
+  ((SUM(de.count_sprint_support_runs) + SUM(de.count_hsr_support_runs)) / NULLIF(SUM(de.count_support_runs), 0)) * 100 AS percentage_support_runs_sprint_hsr,
+
+  -- overlap_runs
+  (SUM(de.count_overlap_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_overlap_runs_per_30_tip,
+  (SUM(de.count_targeted_overlap_runs) / NULLIF(SUM(de.count_overlap_runs), 0)) * 100 AS percentage_overlap_runs_targeted,
+  (SUM(de.count_received_overlap_runs) / NULLIF(SUM(de.count_targeted_overlap_runs), 0)) * 100 AS percentage_overlap_runs_received,
+  (SUM(de.xthreat_overlap_runs) / NULLIF(SUM(de.count_overlap_runs), 0)) AS avg_xthreat_per_overlap_runs,
+  (SUM(de.xpass_completion_overlap_runs) / NULLIF(SUM(de.count_overlap_runs), 0)) AS avg_xpass_completion_overlap_runs,
+  (SUM(de.count_dangerous_overlap_runs) / NULLIF(SUM(de.count_overlap_runs), 0)) * 100 AS percentage_overlap_runs_dangerous,
+  (SUM(de.count_difficult_overlap_runs) / NULLIF(SUM(de.count_overlap_runs), 0)) * 100 AS percentage_overlap_runs_difficult_target,
+  AVG(de.avg_speed_avg_overlap_runs) AS avg_speed_overlap_runs,
+  AVG(de.avg_distance_covered_overlap_runs) AS avg_distance_covered_overlap_runs,
+  (SUM(de.count_hsr_overlap_runs) / NULLIF(SUM(de.count_overlap_runs), 0)) * 100 AS percentage_overlap_runs_hsr,
+  (SUM(de.count_sprint_overlap_runs) / NULLIF(SUM(de.count_overlap_runs), 0)) * 100 AS percentage_overlap_runs_sprint,
+  ((SUM(de.count_sprint_overlap_runs) + SUM(de.count_hsr_overlap_runs)) / NULLIF(SUM(de.count_overlap_runs), 0)) * 100 AS percentage_overlap_runs_sprint_hsr,
+
+  -- underlap_runs
+  (SUM(de.count_underlap_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_underlap_runs_per_30_tip,
+  (SUM(de.count_targeted_underlap_runs) / NULLIF(SUM(de.count_underlap_runs), 0)) * 100 AS percentage_underlap_runs_targeted,
+  (SUM(de.count_received_underlap_runs) / NULLIF(SUM(de.count_targeted_underlap_runs), 0)) * 100 AS percentage_underlap_runs_received,
+  (SUM(de.xthreat_underlap_runs) / NULLIF(SUM(de.count_underlap_runs), 0)) AS avg_xthreat_per_underlap_runs,
+  (SUM(de.xpass_completion_underlap_runs) / NULLIF(SUM(de.count_underlap_runs), 0)) AS avg_xpass_completion_underlap_runs,
+  (SUM(de.count_dangerous_underlap_runs) / NULLIF(SUM(de.count_underlap_runs), 0)) * 100 AS percentage_underlap_runs_dangerous,
+  (SUM(de.count_difficult_underlap_runs) / NULLIF(SUM(de.count_underlap_runs), 0)) * 100 AS percentage_underlap_runs_difficult_target,
+  AVG(de.avg_speed_avg_underlap_runs) AS avg_speed_underlap_runs,
+  AVG(de.avg_distance_covered_underlap_runs) AS avg_distance_covered_underlap_runs,
+  (SUM(de.count_hsr_underlap_runs) / NULLIF(SUM(de.count_underlap_runs), 0)) * 100 AS percentage_underlap_runs_hsr,
+  (SUM(de.count_sprint_underlap_runs) / NULLIF(SUM(de.count_underlap_runs), 0)) * 100 AS percentage_underlap_runs_sprint,
+  ((SUM(de.count_sprint_underlap_runs) + SUM(de.count_hsr_underlap_runs)) / NULLIF(SUM(de.count_underlap_runs), 0)) * 100 AS percentage_underlap_runs_sprint_hsr,
+
+  -- coming_short_runs
+  (SUM(de.count_coming_short_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_coming_short_runs_per_30_tip,
+  (SUM(de.count_targeted_coming_short_runs) / NULLIF(SUM(de.count_coming_short_runs), 0)) * 100 AS percentage_coming_short_runs_targeted,
+  (SUM(de.count_received_coming_short_runs) / NULLIF(SUM(de.count_targeted_coming_short_runs), 0)) * 100 AS percentage_coming_short_runs_received,
+  (SUM(de.xthreat_coming_short_runs) / NULLIF(SUM(de.count_coming_short_runs), 0)) AS avg_xthreat_per_coming_short_runs,
+  (SUM(de.xpass_completion_coming_short_runs) / NULLIF(SUM(de.count_coming_short_runs), 0)) AS avg_xpass_completion_coming_short_runs,
+  (SUM(de.count_dangerous_coming_short_runs) / NULLIF(SUM(de.count_coming_short_runs), 0)) * 100 AS percentage_coming_short_runs_dangerous,
+  (SUM(de.count_difficult_coming_short_runs) / NULLIF(SUM(de.count_coming_short_runs), 0)) * 100 AS percentage_coming_short_runs_difficult_target,
+  AVG(de.avg_speed_avg_coming_short_runs) AS avg_speed_coming_short_runs,
+  AVG(de.avg_distance_covered_coming_short_runs) AS avg_distance_covered_coming_short_runs,
+  (SUM(de.count_hsr_coming_short_runs) / NULLIF(SUM(de.count_coming_short_runs), 0)) * 100 AS percentage_coming_short_runs_hsr,
+  (SUM(de.count_sprint_coming_short_runs) / NULLIF(SUM(de.count_coming_short_runs), 0)) * 100 AS percentage_coming_short_runs_sprint,
+  ((SUM(de.count_sprint_coming_short_runs) + SUM(de.count_hsr_coming_short_runs)) / NULLIF(SUM(de.count_coming_short_runs), 0)) * 100 AS percentage_coming_short_runs_sprint_hsr,
+
+  -- pulling_half_space_runs
+  (SUM(de.count_pulling_half_space_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pulling_half_space_runs_per_30_tip,
+  (SUM(de.count_targeted_pulling_half_space_runs) / NULLIF(SUM(de.count_pulling_half_space_runs), 0)) * 100 AS percentage_pulling_half_space_runs_targeted,
+  (SUM(de.count_received_pulling_half_space_runs) / NULLIF(SUM(de.count_targeted_pulling_half_space_runs), 0)) * 100 AS percentage_pulling_half_space_runs_received,
+  (SUM(de.xthreat_pulling_half_space_runs) / NULLIF(SUM(de.count_pulling_half_space_runs), 0)) AS avg_xthreat_per_pulling_half_space_runs,
+  (SUM(de.xpass_completion_pulling_half_space_runs) / NULLIF(SUM(de.count_pulling_half_space_runs), 0)) AS avg_xpass_completion_pulling_half_space_runs,
+  (SUM(de.count_dangerous_pulling_half_space_runs) / NULLIF(SUM(de.count_pulling_half_space_runs), 0)) * 100 AS percentage_pulling_half_space_runs_dangerous,
+  (SUM(de.count_difficult_pulling_half_space_runs) / NULLIF(SUM(de.count_pulling_half_space_runs), 0)) * 100 AS percentage_pulling_half_space_runs_difficult_target,
+  AVG(de.avg_speed_avg_pulling_half_space_runs) AS avg_speed_pulling_half_space_runs,
+  AVG(de.avg_distance_covered_pulling_half_space_runs) AS avg_distance_covered_pulling_half_space_runs,
+  (SUM(de.count_hsr_pulling_half_space_runs) / NULLIF(SUM(de.count_pulling_half_space_runs), 0)) * 100 AS percentage_pulling_half_space_runs_hsr,
+  (SUM(de.count_sprint_pulling_half_space_runs) / NULLIF(SUM(de.count_pulling_half_space_runs), 0)) * 100 AS percentage_pulling_half_space_runs_sprint,
+  ((SUM(de.count_sprint_pulling_half_space_runs) + SUM(de.count_hsr_pulling_half_space_runs)) / NULLIF(SUM(de.count_pulling_half_space_runs), 0)) * 100 AS percentage_pulling_half_space_runs_sprint_hsr,
+
+  -- pulling_wide_runs
+  (SUM(de.count_pulling_wide_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_pulling_wide_runs_per_30_tip,
+  (SUM(de.count_targeted_pulling_wide_runs) / NULLIF(SUM(de.count_pulling_wide_runs), 0)) * 100 AS percentage_pulling_wide_runs_targeted,
+  (SUM(de.count_received_pulling_wide_runs) / NULLIF(SUM(de.count_targeted_pulling_wide_runs), 0)) * 100 AS percentage_pulling_wide_runs_received,
+  (SUM(de.xthreat_pulling_wide_runs) / NULLIF(SUM(de.count_pulling_wide_runs), 0)) AS avg_xthreat_per_pulling_wide_runs,
+  (SUM(de.xpass_completion_pulling_wide_runs) / NULLIF(SUM(de.count_pulling_wide_runs), 0)) AS avg_xpass_completion_pulling_wide_runs,
+  (SUM(de.count_dangerous_pulling_wide_runs) / NULLIF(SUM(de.count_pulling_wide_runs), 0)) * 100 AS percentage_pulling_wide_runs_dangerous,
+  (SUM(de.count_difficult_pulling_wide_runs) / NULLIF(SUM(de.count_pulling_wide_runs), 0)) * 100 AS percentage_pulling_wide_runs_difficult_target,
+  AVG(de.avg_speed_avg_pulling_wide_runs) AS avg_speed_pulling_wide_runs,
+  AVG(de.avg_distance_covered_pulling_wide_runs) AS avg_distance_covered_pulling_wide_runs,
+  (SUM(de.count_hsr_pulling_wide_runs) / NULLIF(SUM(de.count_pulling_wide_runs), 0)) * 100 AS percentage_pulling_wide_runs_hsr,
+  (SUM(de.count_sprint_pulling_wide_runs) / NULLIF(SUM(de.count_pulling_wide_runs), 0)) * 100 AS percentage_pulling_wide_runs_sprint,
+  ((SUM(de.count_sprint_pulling_wide_runs) + SUM(de.count_hsr_pulling_wide_runs)) / NULLIF(SUM(de.count_pulling_wide_runs), 0)) * 100 AS percentage_pulling_wide_runs_sprint_hsr,
+
+  -- dropping_off_runs
+  (SUM(de.count_dropping_off_runs) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_dropping_off_runs_per_30_tip,
+  (SUM(de.count_targeted_dropping_off_runs) / NULLIF(SUM(de.count_dropping_off_runs), 0)) * 100 AS percentage_dropping_off_runs_targeted,
+  (SUM(de.count_received_dropping_off_runs) / NULLIF(SUM(de.count_targeted_dropping_off_runs), 0)) * 100 AS percentage_dropping_off_runs_received,
+  (SUM(de.xthreat_dropping_off_runs) / NULLIF(SUM(de.count_dropping_off_runs), 0)) AS avg_xthreat_per_dropping_off_runs,
+  (SUM(de.xpass_completion_dropping_off_runs) / NULLIF(SUM(de.count_dropping_off_runs), 0)) AS avg_xpass_completion_dropping_off_runs,
+  (SUM(de.count_dangerous_dropping_off_runs) / NULLIF(SUM(de.count_dropping_off_runs), 0)) * 100 AS percentage_dropping_off_runs_dangerous,
+  (SUM(de.count_difficult_dropping_off_runs) / NULLIF(SUM(de.count_dropping_off_runs), 0)) * 100 AS percentage_dropping_off_runs_difficult_target,
+  AVG(de.avg_speed_avg_dropping_off_runs) AS avg_speed_dropping_off_runs,
+  AVG(de.avg_distance_covered_dropping_off_runs) AS avg_distance_covered_dropping_off_runs,
+  (SUM(de.count_hsr_dropping_off_runs) / NULLIF(SUM(de.count_dropping_off_runs), 0)) * 100 AS percentage_dropping_off_runs_hsr,
+  (SUM(de.count_sprint_dropping_off_runs) / NULLIF(SUM(de.count_dropping_off_runs), 0)) * 100 AS percentage_dropping_off_runs_sprint,
+  ((SUM(de.count_sprint_dropping_off_runs) + SUM(de.count_hsr_dropping_off_runs)) / NULLIF(SUM(de.count_dropping_off_runs), 0)) * 100 AS percentage_dropping_off_runs_sprint_hsr
+
+FROM 
+  ${ref("dynamic_events_ip", "off_ball_runs")} AS de
+JOIN
+  ${ref("physical_data", "physical_data")}  AS phys
+ON
+  de.player_id = phys.player_id
+  AND de.match_id = phys.match_id
+JOIN
+  ${ref("metadata", "players")} AS players
+ON
+  de.player_id = players.id
+JOIN
+  ${ref("metadata", "teams")} AS teams
+ON
+  phys.team_id = CAST(teams.id AS INT)
+JOIN
+  ${ref("metadata", "match_metadata")} AS match 
+ON
+  de.match_id = match.match_id
+JOIN
+  ${ref("metadata", "competition_editions")} AS ce
+ON
+  ce.id = phys.competition_edition_id
+WHERE
+  phys.minutes_full_all >= 60
+GROUP BY
+  de.player_id,
+  phys.team_id,
+  phys.competition_edition_id,
+  competition_edition_name,
+  phys.competition_id,
+  phys.competition_name,
+  phys.season_id,
+  phys.season_name,
+  phys.position_group,
+  players.first_name,
+  players.last_name,
+  players.short_name,
+  teams.name

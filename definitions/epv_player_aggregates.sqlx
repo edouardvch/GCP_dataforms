@@ -1,0 +1,257 @@
+config {
+    type: "table",
+    schema: "dynamic_events_ip",
+    name: "epv_player_aggregates",
+    description: "EPV player aggregates",
+    bigquery: {
+        clusterBy: ["player_id", "team_id", "competition_edition_id"]
+    },
+    assertions:{
+        nonNull: ["player_id", "team_id", "competition_edition_id"]
+    }
+}
+
+WITH base AS (
+  SELECT
+    e.player_id,
+    CONCAT(players.first_name, ' ', players.last_name) AS player_name,
+    players.short_name AS player_short_name,
+    phys.team_id,
+    teams.name AS team_name,
+    phys.competition_edition_id,
+    ce.name AS competition_edition_name,
+    phys.competition_id,
+    phys.competition_name,
+    phys.season_id,
+    phys.season_name,
+    phys.position_group AS player_role_position_group,
+    AVG(phys.minutes_full_all) AS avg_minutes_played,
+    AVG(phys.minutes_full_tip) AS avg_minutes_played_tip,
+    COUNT(*) AS count_match,
+
+    -- ===== Volumes (_total / _count) : sommés puis normalisés per-30-min-TIP =====
+    SAFE_DIVIDE(SUM(e.pass_epv_total), SUM(phys.minutes_full_tip)) * 30
+      AS pass_epv_total_per_30_tip,
+    SAFE_DIVIDE(SUM(e.pass_epv_count), SUM(phys.minutes_full_tip)) * 30
+      AS pass_epv_count_per_30_tip,
+    SAFE_DIVIDE(SUM(e.player_possession_epv_total), SUM(phys.minutes_full_tip)) * 30
+      AS player_possession_epv_total_per_30_tip,
+    SAFE_DIVIDE(SUM(e.player_possession_epv_count), SUM(phys.minutes_full_tip)) * 30
+      AS player_possession_epv_count_per_30_tip,
+    SAFE_DIVIDE(SUM(e.player_possession_overall_epv_total), SUM(phys.minutes_full_tip)) * 30
+      AS player_possession_overall_epv_total_per_30_tip,
+    SAFE_DIVIDE(SUM(e.player_possession_overall_epv_count), SUM(phys.minutes_full_tip)) * 30
+      AS player_possession_overall_epv_count_per_30_tip,
+
+    -- ===== Moyennes (_average*) : moyenne pondérée par le nb d'événements =====
+    -- qualifiants du match (colonne *_count soeur). NaN exclu du num et du denom.
+    SAFE_DIVIDE(
+      SUM(IF(e.pass_epv_average IS NOT NULL AND NOT IS_NAN(e.pass_epv_average), e.pass_epv_average * e.pass_epv_count, NULL)),
+      SUM(IF(e.pass_epv_average IS NOT NULL AND NOT IS_NAN(e.pass_epv_average), e.pass_epv_count, NULL))
+    ) AS pass_epv_average_avg,
+
+    SAFE_DIVIDE(
+      SUM(IF(e.pass_epv_average_peak IS NOT NULL AND NOT IS_NAN(e.pass_epv_average_peak), e.pass_epv_average_peak * e.pass_epv_count, NULL)),
+      SUM(IF(e.pass_epv_average_peak IS NOT NULL AND NOT IS_NAN(e.pass_epv_average_peak), e.pass_epv_count, NULL))
+    ) AS pass_epv_average_peak_avg,
+
+    SAFE_DIVIDE(
+      SUM(IF(e.pass_epv_average_baseline IS NOT NULL AND NOT IS_NAN(e.pass_epv_average_baseline), e.pass_epv_average_baseline * e.pass_epv_count, NULL)),
+      SUM(IF(e.pass_epv_average_baseline IS NOT NULL AND NOT IS_NAN(e.pass_epv_average_baseline), e.pass_epv_count, NULL))
+    ) AS pass_epv_average_baseline_avg,
+
+    SAFE_DIVIDE(
+      SUM(IF(e.player_possession_epv_average IS NOT NULL AND NOT IS_NAN(e.player_possession_epv_average), e.player_possession_epv_average * e.player_possession_epv_count, NULL)),
+      SUM(IF(e.player_possession_epv_average IS NOT NULL AND NOT IS_NAN(e.player_possession_epv_average), e.player_possession_epv_count, NULL))
+    ) AS player_possession_epv_average_avg,
+    SAFE_DIVIDE(
+      SUM(IF(e.player_possession_epv_average_peak IS NOT NULL AND NOT IS_NAN(e.player_possession_epv_average_peak), e.player_possession_epv_average_peak * e.player_possession_epv_count, NULL)),
+      SUM(IF(e.player_possession_epv_average_peak IS NOT NULL AND NOT IS_NAN(e.player_possession_epv_average_peak), e.player_possession_epv_count, NULL))
+    ) AS player_possession_epv_average_peak_avg,
+    SAFE_DIVIDE(
+      SUM(IF(e.player_possession_epv_average_baseline IS NOT NULL AND NOT IS_NAN(e.player_possession_epv_average_baseline), e.player_possession_epv_average_baseline * e.player_possession_epv_count, NULL)),
+      SUM(IF(e.player_possession_epv_average_baseline IS NOT NULL AND NOT IS_NAN(e.player_possession_epv_average_baseline), e.player_possession_epv_count, NULL))
+    ) AS player_possession_epv_average_baseline_avg,
+
+    SAFE_DIVIDE(
+      SUM(IF(e.player_possession_overall_epv_average IS NOT NULL AND NOT IS_NAN(e.player_possession_overall_epv_average), e.player_possession_overall_epv_average * e.player_possession_overall_epv_count, NULL)),
+      SUM(IF(e.player_possession_overall_epv_average IS NOT NULL AND NOT IS_NAN(e.player_possession_overall_epv_average), e.player_possession_overall_epv_count, NULL))
+    ) AS player_possession_overall_epv_average_avg,
+    SAFE_DIVIDE(
+      SUM(IF(e.player_possession_overall_epv_average_peak IS NOT NULL AND NOT IS_NAN(e.player_possession_overall_epv_average_peak), e.player_possession_overall_epv_average_peak * e.player_possession_overall_epv_count, NULL)),
+      SUM(IF(e.player_possession_overall_epv_average_peak IS NOT NULL AND NOT IS_NAN(e.player_possession_overall_epv_average_peak), e.player_possession_overall_epv_count, NULL))
+    ) AS player_possession_overall_epv_average_peak_avg,
+    SAFE_DIVIDE(
+      SUM(IF(e.player_possession_overall_epv_average_baseline IS NOT NULL AND NOT IS_NAN(e.player_possession_overall_epv_average_baseline), e.player_possession_overall_epv_average_baseline * e.player_possession_overall_epv_count, NULL)),
+      SUM(IF(e.player_possession_overall_epv_average_baseline IS NOT NULL AND NOT IS_NAN(e.player_possession_overall_epv_average_baseline), e.player_possession_overall_epv_count, NULL))
+    ) AS player_possession_overall_epv_average_baseline_avg
+
+  FROM
+    ${ref("dynamic_events_ip", "epv")} AS e
+  JOIN
+    ${ref("physical_data", "physical_data")} AS phys
+  ON
+    e.player_id = phys.player_id
+    AND e.match_id = phys.match_id
+  JOIN
+    ${ref("metadata", "players")} AS players
+  ON
+    e.player_id = players.id
+  JOIN
+    ${ref("metadata", "teams")} AS teams
+  ON
+    phys.team_id = CAST(teams.id AS INT)
+  JOIN
+    ${ref("metadata", "match_metadata")} AS match
+  ON
+    e.match_id = match.match_id
+  JOIN
+    ${ref("metadata", "competition_editions")} AS ce
+  ON
+    ce.id = phys.competition_edition_id
+  WHERE
+    phys.minutes_full_all >= 60
+  GROUP BY
+    e.player_id,
+    phys.team_id,
+    phys.competition_edition_id,
+    ce.name,
+    phys.competition_id,
+    phys.competition_name,
+    phys.season_id,
+    phys.season_name,
+    phys.position_group,
+    players.first_name,
+    players.last_name,
+    players.short_name,
+    teams.name
+)
+
+-- ===== Rangs percentile (0-100) au sein de player_role_position_group x tier =====
+-- Tier = (count_match >= 5). Formule "average rank" (comme pl.rank(method='average')) :
+-- rang bas + (nb d'ex-aequo - 1) / 2.
+
+SELECT
+  base.*,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY pass_epv_total_per_30_tip ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY pass_epv_total_per_30_tip DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS pass_epv_total_per_30_tip_rank,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY pass_epv_count_per_30_tip ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY pass_epv_count_per_30_tip DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS pass_epv_count_per_30_tip_rank,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_epv_total_per_30_tip ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_epv_total_per_30_tip DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS player_possession_epv_total_per_30_tip_rank,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_epv_count_per_30_tip ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_epv_count_per_30_tip DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS player_possession_epv_count_per_30_tip_rank,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_overall_epv_total_per_30_tip ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_overall_epv_total_per_30_tip DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS player_possession_overall_epv_total_per_30_tip_rank,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_overall_epv_count_per_30_tip ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_overall_epv_count_per_30_tip DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS player_possession_overall_epv_count_per_30_tip_rank,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY pass_epv_average_avg ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY pass_epv_average_avg DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS pass_epv_average_avg_rank,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY pass_epv_average_peak_avg ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY pass_epv_average_peak_avg DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS pass_epv_average_peak_avg_rank,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY pass_epv_average_baseline_avg ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY pass_epv_average_baseline_avg DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS pass_epv_average_baseline_avg_rank,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_epv_average_avg ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_epv_average_avg DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS player_possession_epv_average_avg_rank,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_epv_average_peak_avg ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_epv_average_peak_avg DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS player_possession_epv_average_peak_avg_rank,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_epv_average_baseline_avg ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_epv_average_baseline_avg DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS player_possession_epv_average_baseline_avg_rank,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_overall_epv_average_avg ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_overall_epv_average_avg DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS player_possession_overall_epv_average_avg_rank,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_overall_epv_average_peak_avg ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_overall_epv_average_peak_avg DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS player_possession_overall_epv_average_peak_avg_rank,
+
+  ROUND(
+    (RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_overall_epv_average_baseline_avg ASC)
+     + COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5))
+     - RANK() OVER (PARTITION BY player_role_position_group, (count_match >= 5) ORDER BY player_possession_overall_epv_average_baseline_avg DESC)
+     + 1) / 2.0
+    / COUNT(*) OVER (PARTITION BY player_role_position_group, (count_match >= 5)) * 100
+  ) AS player_possession_overall_epv_average_baseline_avg_rank
+
+FROM base

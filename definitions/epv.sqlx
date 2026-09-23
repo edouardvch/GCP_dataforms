@@ -1,0 +1,165 @@
+config {
+    type: "table",
+    schema: "dynamic_events_ip",
+    name: "epv",
+    description: "EPV",
+    bigquery: {
+        clusterBy: ["match_id", "player_id", "team_id", "competition_edition_id"]
+    },
+    assertions:{
+        nonNull: ["match_id", "player_id", "team_id", "competition_edition_id"]
+    }
+}
+
+
+WITH base AS (
+  SELECT
+    player_id,
+    match_id,
+    pass_epv_total,
+    pass_outcome,
+    possession_epv_total,
+    one_touch
+  FROM ${ref("events", "dynamic_events")}
+),
+
+-- Une ligne par événement qualifiant, par famille. Valeurs à l'échelle x100.
+long_values AS (
+  SELECT player_id, match_id, 'pass' AS family, pass_epv_total * 100 AS value
+  FROM base
+  WHERE pass_epv_total IS NOT NULL AND pass_outcome IN ('successful', 'unsuccessful')
+
+  UNION ALL
+
+  SELECT player_id, match_id, 'player_possession' AS family, possession_epv_total * 100 AS value
+  FROM base
+  WHERE possession_epv_total IS NOT NULL AND COALESCE(one_touch, FALSE) = FALSE
+
+  UNION ALL
+
+  -- overall : partie possession + partie passe, partie invalide = 0, gardé si l'une des deux qualifie
+  SELECT
+    player_id, match_id, 'player_possession_overall' AS family,
+    IF(possession_epv_total IS NOT NULL AND COALESCE(one_touch, FALSE) = FALSE, possession_epv_total * 100, 0)
+    + IF(pass_epv_total IS NOT NULL AND pass_outcome IN ('successful', 'unsuccessful'), pass_epv_total * 100, 0) AS value
+  FROM base
+  WHERE (possession_epv_total IS NOT NULL AND COALESCE(one_touch, FALSE) = FALSE)
+     OR (pass_epv_total IS NOT NULL AND pass_outcome IN ('successful', 'unsuccessful'))
+),
+
+-- Rang descendant + stats de groupe (n, somme totale), par player/match/famille
+ranked AS (
+  SELECT
+    player_id, match_id, family, value,
+    ROW_NUMBER() OVER (PARTITION BY player_id, match_id, family ORDER BY value DESC) AS rn,
+    COUNT(*)     OVER (PARTITION BY player_id, match_id, family) AS n,
+    SUM(value)   OVER (PARTITION BY player_id, match_id, family) AS total_sum
+  FROM long_values
+),
+
+-- k = nb de valeurs entières dans le top 10%, alpha = poids fractionnaire de la valeur de coupure
+with_cutoff AS (
+  SELECT
+    *,
+    CAST(FLOOR(0.1 * n) AS INT64) AS k,
+    0.1 * n - FLOOR(0.1 * n)      AS alpha
+  FROM ranked
+),
+
+per_family_agg AS (
+  SELECT
+    player_id, match_id, family,
+    ANY_VALUE(n)         AS n,
+    ANY_VALUE(total_sum) AS total_sum,
+    ANY_VALUE(k)         AS k,
+    ANY_VALUE(alpha)     AS alpha,
+    SUM(IF(rn <= k, value, 0))          AS sum_top_k,
+    MAX(IF(rn = k + 1, value, NULL))    AS value_at_cutoff
+  FROM with_cutoff
+  GROUP BY player_id, match_id, family
+),
+
+per_family_metrics AS (
+  SELECT
+    player_id, match_id, family,
+    total_sum AS epv_total,
+    n         AS epv_count,
+    SAFE_DIVIDE(total_sum, n) AS epv_average,
+    SAFE_DIVIDE(sum_top_k + alpha * value_at_cutoff, 0.1 * n) AS epv_average_peak,
+    SAFE_DIVIDE(total_sum - (sum_top_k + alpha * value_at_cutoff), 0.9 * n) AS epv_average_baseline
+  FROM per_family_agg
+)
+
+-- Pivot : une ligne par player_id/match_id, une colonne par famille x métrique
+SELECT
+  epv.player_id,
+  epv.match_id,
+  CONCAT(players.first_name, ' ', players.last_name) AS player_name,
+  players.short_name AS player_short_name,
+  phys.team_id,
+  teams.name AS team_name,
+  phys.competition_edition_id,
+  ce.name AS competition_edition_name,
+  phys.competition_id,
+  phys.competition_name,
+  phys.season_id,
+  phys.season_name,
+  phys.position_group AS player_role_position_group,
+
+  MAX(IF(family = 'pass', epv_count, NULL))            AS pass_epv_count,
+  MAX(IF(family = 'pass', epv_total, NULL))             AS pass_epv_total,
+  MAX(IF(family = 'pass', epv_average, NULL))           AS pass_epv_average,
+  MAX(IF(family = 'pass', epv_average_peak, NULL))      AS pass_epv_average_peak,
+  MAX(IF(family = 'pass', epv_average_baseline, NULL))  AS pass_epv_average_baseline,
+
+  MAX(IF(family = 'player_possession', epv_count, NULL))            AS player_possession_epv_count,
+  MAX(IF(family = 'player_possession', epv_total, NULL))             AS player_possession_epv_total,
+  MAX(IF(family = 'player_possession', epv_average, NULL))           AS player_possession_epv_average,
+  MAX(IF(family = 'player_possession', epv_average_peak, NULL))      AS player_possession_epv_average_peak,
+  MAX(IF(family = 'player_possession', epv_average_baseline, NULL))  AS player_possession_epv_average_baseline,
+
+  MAX(IF(family = 'player_possession_overall', epv_count, NULL))            AS player_possession_overall_epv_count,
+  MAX(IF(family = 'player_possession_overall', epv_total, NULL))             AS player_possession_overall_epv_total,
+  MAX(IF(family = 'player_possession_overall', epv_average, NULL))           AS player_possession_overall_epv_average,
+  MAX(IF(family = 'player_possession_overall', epv_average_peak, NULL))      AS player_possession_overall_epv_average_peak,
+  MAX(IF(family = 'player_possession_overall', epv_average_baseline, NULL))  AS player_possession_overall_epv_average_baseline
+
+FROM per_family_metrics AS epv
+JOIN
+  ${ref("physical_data", "physical_data")} AS phys
+ON
+  epv.player_id = phys.player_id
+  AND epv.match_id = phys.match_id
+JOIN
+  ${ref("metadata", "players")} AS players
+ON
+  epv.player_id = players.id
+JOIN
+  ${ref("metadata", "teams")} AS teams
+ON
+  phys.team_id = CAST(teams.id AS INT)
+JOIN
+  ${ref("metadata", "match_metadata")} AS match 
+ON
+  epv.match_id = match.match_id
+JOIN
+  ${ref("metadata", "competition_editions")} AS ce
+ON
+  ce.id = phys.competition_edition_id
+WHERE
+  phys.minutes_full_all >= 60
+GROUP BY
+  player_id,
+  match_id,
+  phys.team_id,
+  phys.competition_edition_id,
+  competition_edition_name,
+  phys.competition_id,
+  phys.competition_name,
+  phys.season_id,
+  phys.season_name,
+  phys.position_group,
+  players.first_name,
+  players.last_name,
+  players.short_name,
+  teams.name
