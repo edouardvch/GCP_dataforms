@@ -1,0 +1,14 @@
+config {
+    type: "table",
+    schema: "dynamic_events_ip",
+    name: "off_ball_runs",
+    description: "Dynamic events in possession off ball runs",
+    bigquery: {
+        clusterBy: ["match_id", "player_id"]
+    },
+    assertions:{
+        nonNull: ["match_id", "player_id"]
+    }
+}
+
+SELECT * FROM ${ref("skillcorner_external_data", "off_ball_runs")}

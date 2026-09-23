@@ -1,0 +1,14 @@
+config {
+    type: "table",
+    schema: "dynamic_events_ip",
+    name: "line_breaking_options",
+    description: "Dynamic events in possession: line breaking options",
+    bigquery: {
+        clusterBy: ["match_id", "player_id"]
+    },
+    assertions:{
+        nonNull: ["match_id", "player_id"]
+    }
+}
+
+SELECT * FROM ${ref("skillcorner_external_data", "line_breaking_options")}

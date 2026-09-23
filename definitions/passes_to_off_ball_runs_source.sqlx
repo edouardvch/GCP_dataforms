@@ -1,0 +1,6 @@
+config {
+  type: "declaration",
+  database: "analysisteam-cloudsql",
+  schema: "skillcorner_external_data",
+  name: "passes_to_off_ball_runs"
+}
