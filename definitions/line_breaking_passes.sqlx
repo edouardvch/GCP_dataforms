@@ -4,10 +4,10 @@ config {
     name: "line_breaking_passes",
     description: "Dynamic events in possession: line breaking passes",
     bigquery: {
-        clusterBy: ["match_id", "player_id"]
+        clusterBy: ["match_id", "player_in_possession_id"]
     },
     assertions:{
-        nonNull: ["match_id", "player_id"]
+        nonNull: ["match_id", "player_in_possession_id"]
     }
 }
 
