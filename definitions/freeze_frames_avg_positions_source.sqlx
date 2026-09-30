@@ -1,0 +1,6 @@
+config {
+  type: "declaration",
+  database: "skillcorner-analysis-app",
+  schema: "external_tables",
+  name: "v2_freeze_frame_avg_positions"
+}

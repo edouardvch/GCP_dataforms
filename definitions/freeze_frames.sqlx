@@ -1,0 +1,54 @@
+config {
+    type: "table",
+    schema: "csm_team_sandbox",
+    name: "freeze_frames_diego_v2",
+    description: "",
+    bigquery: {
+        clusterBy: ["match_id,", "event_id"]
+    },
+    assertions:{
+        nonNull: ["match_id", "event_id"]
+    }
+}
+
+SELECT
+  -- Join keys taken from the tracking side so they survive unmatched rows
+  t2.match_id,
+  t2.event_id,
+
+  -- Columns from your main events table
+  t1.* EXCEPT (match_id, event_id),
+
+  -- Tracking columns from the freeze frames subquery with the requested prefix
+  t2.player_id AS tracking_player_id,
+  t2.player_name AS tracking_player_name,
+  t2.player_team_id AS tracking_player_team_id,
+  t2.in_possession AS tracking_in_possession,
+  t2.x_start AS tracking_x_start,
+  t2.y_start AS tracking_y_start,
+  t2.extrapolated_start AS tracking_extrapolated_start,
+  t2.x_end AS tracking_x_end,
+  t2.y_end AS tracking_y_end,
+  t2.extrapolated_end AS tracking_extrapolated_end
+
+FROM (
+  SELECT
+    ff.match_id,
+    ff.event_id,
+    p.element.player_id,
+    p.element.player_name,
+    p.element.team_id AS player_team_id,
+    (p.element.team_id = ff.team_in_possession_id) AS in_possession,
+    p.element.x_start,
+    p.element.y_start,
+    p.element.extrapolated_start,
+    p.element.x_end,
+    p.element.y_end,
+    p.element.extrapolated_end
+  FROM ${ref("external_tables", "v2_freeze_frames")} AS ff,
+  UNNEST(players.list) AS p
+) t2
+INNER JOIN ${ref("events", "dynamic_events")} t1
+  ON t1.match_id = t2.match_id
+  AND t1.event_id = t2.event_id
+  AND t1.event_type = 'player_possession'
