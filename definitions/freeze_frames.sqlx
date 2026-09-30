@@ -4,7 +4,7 @@ config {
     name: "freeze_frames_diego_v2",
     description: "",
     bigquery: {
-        clusterBy: ["match_id,", "event_id"]
+        clusterBy: ["match_id", "event_id"]
     },
     assertions:{
         nonNull: ["match_id", "event_id"]
@@ -46,7 +46,7 @@ FROM (
     p.element.y_end,
     p.element.extrapolated_end
   FROM ${ref("external_tables", "v2_freeze_frames")} AS ff,
-  UNNEST(players.list) AS p
+  UNNEST(ff.players.list) AS p
 ) t2
 INNER JOIN ${ref("events", "dynamic_events")} t1
   ON t1.match_id = t2.match_id
