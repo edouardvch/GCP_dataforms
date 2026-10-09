@@ -106,7 +106,6 @@ mmcepp_t AS (
   t.coach AS coach_name,
   t.stadium_id,
   t.stadium_name,
-  t.stadium,
   t.stadium_city,
   t.stadium_capacity
   FROM ${ref("metadata", "teams")} as t
