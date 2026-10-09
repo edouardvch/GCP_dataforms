@@ -12,5 +12,8 @@ SELECT
     t2.competition_edition_id,
     t1.* 
 FROM ${ref("external_tables", "v2_freeze_frame_avg_positions")} t1
-LEFT JOIN ${ref("metadata", "core_metadata")} t2
+LEFT JOIN (
+    SELECT DISTINCT match_id, competition_edition_id
+    FROM ${ref("metadata", "core_metadata")}
+) t2
 ON t1.match_id = t2.match_id
