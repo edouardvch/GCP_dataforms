@@ -1,19 +1,18 @@
+config {
+  type: "operations",
+  name: "update_physical_data_player_names",
+  description: "Fill player_name / player_short_name in physical_data from metadata.players",
+  hasOutput: false,
+  tags: ["physical_data"]
+}
+
+
 UPDATE 
     ${ref("physical_data", "physical_data")} AS pd
-SET 
-    pd.player_name = (
-        SELECT CONCAT(p.first_name, ' ', p.last_name)
-        FROM ${ref("metadata", "players")} AS p
-        WHERE pd.player_id = p.id
-    ),
-    pd.player_short_name = (
-        SELECT p.short_name
-        FROM ${ref("metadata", "players")} AS p
-        WHERE pd.player_id = p.id
-    )
+SET
+  player_name       = CONCAT(p.first_name, ' ', p.last_name),
+  player_short_name = p.short_name
+FROM 
+    ${ref("metadata", "players")} AS p
 WHERE 
-    EXISTS (
-        SELECT 1 
-        FROM ${ref("metadata", "players")} AS p
-        WHERE pd.player_id = p.id
-    );
+    pd.player_id = p.id
