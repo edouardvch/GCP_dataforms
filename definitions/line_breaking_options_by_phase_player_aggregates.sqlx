@@ -1,0 +1,346 @@
+config {
+    type: "table",
+    schema: "dynamic_events_ip",
+    name: "line_breaking_options_by_phase_player_aggregates",
+    description: "Line breaking options player aggregates split by phase",
+    bigquery: {
+        clusterBy: ["player_id", "team_id", "competition_edition_id"]
+    },
+    assertions:{
+        nonNull: ["player_id", "team_id", "competition_edition_id"]
+    }
+}
+
+SELECT
+  de.player_id,
+  CONCAT(players.first_name, ' ', players.last_name) AS player_name,
+  players.short_name AS player_short_name,
+  phys.team_id,
+  teams.name AS team_name,
+  phys.competition_edition_id,
+  ce.name AS competition_edition_name,
+  phys.competition_id,
+  phys.competition_name,
+  phys.season_id,
+  phys.season_name,
+  phys.position_group AS player_role_position_group,
+  AVG(phys.minutes_full_all) AS avg_minutes_played,
+  AVG(phys.minutes_full_tip) AS avg_minutes_played_tip,
+  COUNT(*) AS count_match,
+  (SUM(de.count_passing_option) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_passing_option_per_30_tip,
+  (SUM(de.count_targeted_passing_option) / NULLIF(SUM(de.count_passing_option), 0)) * 100 AS percentage_passing_option_targeted,
+  (SUM(de.count_received_passing_option) / NULLIF(SUM(de.count_targeted_passing_option), 0)) * 100 AS percentage_passing_option_received,
+  (SUM(de.xthreat_passing_option) / NULLIF(SUM(de.count_passing_option), 0)) AS avg_xthreat_per_passing_option,
+  (SUM(de.xpass_completion_passing_option) / NULLIF(SUM(de.count_passing_option), 0)) AS avg_xpass_completion_passing_option,
+  (SUM(de.count_dangerous_passing_option) / NULLIF(SUM(de.count_passing_option), 0)) * 100 AS percentage_passing_option_dangerous,
+  (SUM(de.count_difficult_passing_option) / NULLIF(SUM(de.count_passing_option), 0)) * 100 AS percentage_passing_option_difficult_target,
+
+
+
+  (SUM(de.count_passing_option_in_build_up) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_passing_option_in_build_up_per_30_tip,
+  (SUM(de.count_targeted_passing_option_in_build_up) / NULLIF(SUM(de.count_passing_option_in_build_up), 0)) * 100 AS percentage_passing_option_in_build_up_targeted,
+  (SUM(de.count_received_passing_option_in_build_up) / NULLIF(SUM(de.count_targeted_passing_option_in_build_up), 0)) * 100 AS percentage_passing_option_in_build_up_received,
+  (SUM(de.xthreat_passing_option_in_build_up) / NULLIF(SUM(de.count_passing_option_in_build_up), 0)) AS avg_xthreat_per_passing_option_in_build_up,
+  (SUM(de.xpass_completion_passing_option_in_build_up) / NULLIF(SUM(de.count_passing_option_in_build_up), 0)) AS avg_xpass_completion_passing_option_in_build_up,
+  (SUM(de.count_dangerous_passing_option_in_build_up) / NULLIF(SUM(de.count_passing_option_in_build_up), 0)) * 100 AS percentage_passing_option_in_build_up_dangerous,
+  (SUM(de.count_difficult_passing_option_in_build_up) / NULLIF(SUM(de.count_passing_option_in_build_up), 0)) * 100 AS percentage_passing_option_in_build_up_difficult_target,
+
+
+
+  (SUM(de.count_passing_option_in_create) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_passing_option_in_create_per_30_tip,
+  (SUM(de.count_targeted_passing_option_in_create) / NULLIF(SUM(de.count_passing_option_in_create), 0)) * 100 AS percentage_passing_option_in_create_targeted,
+  (SUM(de.count_received_passing_option_in_create) / NULLIF(SUM(de.count_targeted_passing_option_in_create), 0)) * 100 AS percentage_passing_option_in_create_received,
+  (SUM(de.xthreat_passing_option_in_create) / NULLIF(SUM(de.count_passing_option_in_create), 0)) AS avg_xthreat_per_passing_option_in_create,
+  (SUM(de.xpass_completion_passing_option_in_create) / NULLIF(SUM(de.count_passing_option_in_create), 0)) AS avg_xpass_completion_passing_option_in_create,
+  (SUM(de.count_dangerous_passing_option_in_create) / NULLIF(SUM(de.count_passing_option_in_create), 0)) * 100 AS percentage_passing_option_in_create_dangerous,
+  (SUM(de.count_difficult_passing_option_in_create) / NULLIF(SUM(de.count_passing_option_in_create), 0)) * 100 AS percentage_passing_option_in_create_difficult_target,
+
+
+
+  (SUM(de.count_passing_option_in_finish) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_passing_option_in_finish_per_30_tip,
+  (SUM(de.count_targeted_passing_option_in_finish) / NULLIF(SUM(de.count_passing_option_in_finish), 0)) * 100 AS percentage_passing_option_in_finish_targeted,
+  (SUM(de.count_received_passing_option_in_finish) / NULLIF(SUM(de.count_targeted_passing_option_in_finish), 0)) * 100 AS percentage_passing_option_in_finish_received,
+  (SUM(de.xthreat_passing_option_in_finish) / NULLIF(SUM(de.count_passing_option_in_finish), 0)) AS avg_xthreat_per_passing_option_in_finish,
+  (SUM(de.xpass_completion_passing_option_in_finish) / NULLIF(SUM(de.count_passing_option_in_finish), 0)) AS avg_xpass_completion_passing_option_in_finish,
+  (SUM(de.count_dangerous_passing_option_in_finish) / NULLIF(SUM(de.count_passing_option_in_finish), 0)) * 100 AS percentage_passing_option_in_finish_dangerous,
+  (SUM(de.count_difficult_passing_option_in_finish) / NULLIF(SUM(de.count_passing_option_in_finish), 0)) * 100 AS percentage_passing_option_in_finish_difficult_target,
+
+
+
+  (SUM(de.count_through_first_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_through_first_line_per_30_tip,
+  (SUM(de.count_targeted_through_first_line) / NULLIF(SUM(de.count_through_first_line), 0)) * 100 AS percentage_through_first_line_targeted,
+  (SUM(de.count_received_through_first_line) / NULLIF(SUM(de.count_targeted_through_first_line), 0)) * 100 AS percentage_through_first_line_received,
+  (SUM(de.xthreat_through_first_line) / NULLIF(SUM(de.count_through_first_line), 0)) AS avg_xthreat_per_through_first_line,
+  (SUM(de.xpass_completion_through_first_line) / NULLIF(SUM(de.count_through_first_line), 0)) AS avg_xpass_completion_through_first_line,
+  (SUM(de.count_dangerous_through_first_line) / NULLIF(SUM(de.count_through_first_line), 0)) * 100 AS percentage_through_first_line_dangerous,
+  (SUM(de.count_difficult_through_first_line) / NULLIF(SUM(de.count_through_first_line), 0)) * 100 AS percentage_through_first_line_difficult_target,
+
+
+
+  (SUM(de.count_through_first_line_in_build_up) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_through_first_line_in_build_up_per_30_tip,
+  (SUM(de.count_targeted_through_first_line_in_build_up) / NULLIF(SUM(de.count_through_first_line_in_build_up), 0)) * 100 AS percentage_through_first_line_in_build_up_targeted,
+  (SUM(de.count_received_through_first_line_in_build_up) / NULLIF(SUM(de.count_targeted_through_first_line_in_build_up), 0)) * 100 AS percentage_through_first_line_in_build_up_received,
+  (SUM(de.xthreat_through_first_line_in_build_up) / NULLIF(SUM(de.count_through_first_line_in_build_up), 0)) AS avg_xthreat_per_through_first_line_in_build_up,
+  (SUM(de.xpass_completion_through_first_line_in_build_up) / NULLIF(SUM(de.count_through_first_line_in_build_up), 0)) AS avg_xpass_completion_through_first_line_in_build_up,
+  (SUM(de.count_dangerous_through_first_line_in_build_up) / NULLIF(SUM(de.count_through_first_line_in_build_up), 0)) * 100 AS percentage_through_first_line_in_build_up_dangerous,
+  (SUM(de.count_difficult_through_first_line_in_build_up) / NULLIF(SUM(de.count_through_first_line_in_build_up), 0)) * 100 AS percentage_through_first_line_in_build_up_difficult_target,
+
+
+
+  (SUM(de.count_through_first_line_in_create) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_through_first_line_in_create_per_30_tip,
+  (SUM(de.count_targeted_through_first_line_in_create) / NULLIF(SUM(de.count_through_first_line_in_create), 0)) * 100 AS percentage_through_first_line_in_create_targeted,
+  (SUM(de.count_received_through_first_line_in_create) / NULLIF(SUM(de.count_targeted_through_first_line_in_create), 0)) * 100 AS percentage_through_first_line_in_create_received,
+  (SUM(de.xthreat_through_first_line_in_create) / NULLIF(SUM(de.count_through_first_line_in_create), 0)) AS avg_xthreat_per_through_first_line_in_create,
+  (SUM(de.xpass_completion_through_first_line_in_create) / NULLIF(SUM(de.count_through_first_line_in_create), 0)) AS avg_xpass_completion_through_first_line_in_create,
+  (SUM(de.count_dangerous_through_first_line_in_create) / NULLIF(SUM(de.count_through_first_line_in_create), 0)) * 100 AS percentage_through_first_line_in_create_dangerous,
+  (SUM(de.count_difficult_through_first_line_in_create) / NULLIF(SUM(de.count_through_first_line_in_create), 0)) * 100 AS percentage_through_first_line_in_create_difficult_target,
+
+
+
+  (SUM(de.count_through_first_line_in_finish) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_through_first_line_in_finish_per_30_tip,
+  (SUM(de.count_targeted_through_first_line_in_finish) / NULLIF(SUM(de.count_through_first_line_in_finish), 0)) * 100 AS percentage_through_first_line_in_finish_targeted,
+  (SUM(de.count_received_through_first_line_in_finish) / NULLIF(SUM(de.count_targeted_through_first_line_in_finish), 0)) * 100 AS percentage_through_first_line_in_finish_received,
+  (SUM(de.xthreat_through_first_line_in_finish) / NULLIF(SUM(de.count_through_first_line_in_finish), 0)) AS avg_xthreat_per_through_first_line_in_finish,
+  (SUM(de.xpass_completion_through_first_line_in_finish) / NULLIF(SUM(de.count_through_first_line_in_finish), 0)) AS avg_xpass_completion_through_first_line_in_finish,
+  (SUM(de.count_dangerous_through_first_line_in_finish) / NULLIF(SUM(de.count_through_first_line_in_finish), 0)) * 100 AS percentage_through_first_line_in_finish_dangerous,
+  (SUM(de.count_difficult_through_first_line_in_finish) / NULLIF(SUM(de.count_through_first_line_in_finish), 0)) * 100 AS percentage_through_first_line_in_finish_difficult_target,
+
+
+
+  (SUM(de.count_around_first_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_around_first_line_per_30_tip,
+  (SUM(de.count_targeted_around_first_line) / NULLIF(SUM(de.count_around_first_line), 0)) * 100 AS percentage_around_first_line_targeted,
+  (SUM(de.count_received_around_first_line) / NULLIF(SUM(de.count_targeted_around_first_line), 0)) * 100 AS percentage_around_first_line_received,
+  (SUM(de.xthreat_around_first_line) / NULLIF(SUM(de.count_around_first_line), 0)) AS avg_xthreat_per_around_first_line,
+  (SUM(de.xpass_completion_around_first_line) / NULLIF(SUM(de.count_around_first_line), 0)) AS avg_xpass_completion_around_first_line,
+  (SUM(de.count_dangerous_around_first_line) / NULLIF(SUM(de.count_around_first_line), 0)) * 100 AS percentage_around_first_line_dangerous,
+  (SUM(de.count_difficult_around_first_line) / NULLIF(SUM(de.count_around_first_line), 0)) * 100 AS percentage_around_first_line_difficult_target,
+
+
+
+  (SUM(de.count_around_first_line_in_build_up) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_around_first_line_in_build_up_per_30_tip,
+  (SUM(de.count_targeted_around_first_line_in_build_up) / NULLIF(SUM(de.count_around_first_line_in_build_up), 0)) * 100 AS percentage_around_first_line_in_build_up_targeted,
+  (SUM(de.count_received_around_first_line_in_build_up) / NULLIF(SUM(de.count_targeted_around_first_line_in_build_up), 0)) * 100 AS percentage_around_first_line_in_build_up_received,
+  (SUM(de.xthreat_around_first_line_in_build_up) / NULLIF(SUM(de.count_around_first_line_in_build_up), 0)) AS avg_xthreat_per_around_first_line_in_build_up,
+  (SUM(de.xpass_completion_around_first_line_in_build_up) / NULLIF(SUM(de.count_around_first_line_in_build_up), 0)) AS avg_xpass_completion_around_first_line_in_build_up,
+  (SUM(de.count_dangerous_around_first_line_in_build_up) / NULLIF(SUM(de.count_around_first_line_in_build_up), 0)) * 100 AS percentage_around_first_line_in_build_up_dangerous,
+  (SUM(de.count_difficult_around_first_line_in_build_up) / NULLIF(SUM(de.count_around_first_line_in_build_up), 0)) * 100 AS percentage_around_first_line_in_build_up_difficult_target,
+
+
+
+  (SUM(de.count_around_first_line_create) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_around_first_line_create_per_30_tip,
+  (SUM(de.count_targeted_around_first_line_create) / NULLIF(SUM(de.count_around_first_line_create), 0)) * 100 AS percentage_around_first_line_create_targeted,
+  (SUM(de.count_received_around_first_line_create) / NULLIF(SUM(de.count_targeted_around_first_line_create), 0)) * 100 AS percentage_around_first_line_create_received,
+  (SUM(de.xthreat_around_first_line_create) / NULLIF(SUM(de.count_around_first_line_create), 0)) AS avg_xthreat_per_around_first_line_create,
+  (SUM(de.xpass_completion_around_first_line_create) / NULLIF(SUM(de.count_around_first_line_create), 0)) AS avg_xpass_completion_around_first_line_create,
+  (SUM(de.count_dangerous_around_first_line_create) / NULLIF(SUM(de.count_around_first_line_create), 0)) * 100 AS percentage_around_first_line_create_dangerous,
+  (SUM(de.count_difficult_around_first_line_create) / NULLIF(SUM(de.count_around_first_line_create), 0)) * 100 AS percentage_around_first_line_create_difficult_target,
+
+
+
+  (SUM(de.count_around_first_line_finish) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_around_first_line_finish_per_30_tip,
+  (SUM(de.count_targeted_around_first_line_finish) / NULLIF(SUM(de.count_around_first_line_finish), 0)) * 100 AS percentage_around_first_line_finish_targeted,
+  (SUM(de.count_received_around_first_line_finish) / NULLIF(SUM(de.count_targeted_around_first_line_finish), 0)) * 100 AS percentage_around_first_line_finish_received,
+  (SUM(de.xthreat_around_first_line_finish) / NULLIF(SUM(de.count_around_first_line_finish), 0)) AS avg_xthreat_per_around_first_line_finish,
+  (SUM(de.xpass_completion_around_first_line_finish) / NULLIF(SUM(de.count_around_first_line_finish), 0)) AS avg_xpass_completion_around_first_line_finish,
+  (SUM(de.count_dangerous_around_first_line_finish) / NULLIF(SUM(de.count_around_first_line_finish), 0)) * 100 AS percentage_around_first_line_finish_dangerous,
+  (SUM(de.count_difficult_around_first_line_finish) / NULLIF(SUM(de.count_around_first_line_finish), 0)) * 100 AS percentage_around_first_line_finish_difficult_target,
+
+
+
+  (SUM(de.count_through_second_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_through_second_last_line_per_30_tip,
+  (SUM(de.count_targeted_through_second_last_line) / NULLIF(SUM(de.count_through_second_last_line), 0)) * 100 AS percentage_through_second_last_line_targeted,
+  (SUM(de.count_received_through_second_last_line) / NULLIF(SUM(de.count_targeted_through_second_last_line), 0)) * 100 AS percentage_through_second_last_line_received,
+  (SUM(de.xthreat_through_second_last_line) / NULLIF(SUM(de.count_through_second_last_line), 0)) AS avg_xthreat_per_through_second_last_line,
+  (SUM(de.xpass_completion_through_second_last_line) / NULLIF(SUM(de.count_through_second_last_line), 0)) AS avg_xpass_completion_through_second_last_line,
+  (SUM(de.count_dangerous_through_second_last_line) / NULLIF(SUM(de.count_through_second_last_line), 0)) * 100 AS percentage_through_second_last_line_dangerous,
+  (SUM(de.count_difficult_through_second_last_line) / NULLIF(SUM(de.count_through_second_last_line), 0)) * 100 AS percentage_through_second_last_line_difficult_target,
+
+
+
+  (SUM(de.count_through_second_last_line_in_build_up) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_through_second_last_line_in_build_up_per_30_tip,
+  (SUM(de.count_targeted_through_second_last_line_in_build_up) / NULLIF(SUM(de.count_through_second_last_line_in_build_up), 0)) * 100 AS percentage_through_second_last_line_in_build_up_targeted,
+  (SUM(de.count_received_through_second_last_line_in_build_up) / NULLIF(SUM(de.count_targeted_through_second_last_line_in_build_up), 0)) * 100 AS percentage_through_second_last_line_in_build_up_received,
+  (SUM(de.xthreat_through_second_last_line_in_build_up) / NULLIF(SUM(de.count_through_second_last_line_in_build_up), 0)) AS avg_xthreat_per_through_second_last_line_in_build_up,
+  (SUM(de.xpass_completion_through_second_last_line_in_build_up) / NULLIF(SUM(de.count_through_second_last_line_in_build_up), 0)) AS avg_xpass_completion_through_second_last_line_in_build_up,
+  (SUM(de.count_dangerous_through_second_last_line_in_build_up) / NULLIF(SUM(de.count_through_second_last_line_in_build_up), 0)) * 100 AS percentage_through_second_last_line_in_build_up_dangerous,
+  (SUM(de.count_difficult_through_second_last_line_in_build_up) / NULLIF(SUM(de.count_through_second_last_line_in_build_up), 0)) * 100 AS percentage_through_second_last_line_in_build_up_difficult_target,
+
+
+
+  (SUM(de.count_through_second_last_line_in_create) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_through_second_last_line_in_create_per_30_tip,
+  (SUM(de.count_targeted_through_second_last_line_in_create) / NULLIF(SUM(de.count_through_second_last_line_in_create), 0)) * 100 AS percentage_through_second_last_line_in_create_targeted,
+  (SUM(de.count_received_through_second_last_line_in_create) / NULLIF(SUM(de.count_targeted_through_second_last_line_in_create), 0)) * 100 AS percentage_through_second_last_line_in_create_received,
+  (SUM(de.xthreat_through_second_last_line_in_create) / NULLIF(SUM(de.count_through_second_last_line_in_create), 0)) AS avg_xthreat_per_through_second_last_line_in_create,
+  (SUM(de.xpass_completion_through_second_last_line_in_create) / NULLIF(SUM(de.count_through_second_last_line_in_create), 0)) AS avg_xpass_completion_through_second_last_line_in_create,
+  (SUM(de.count_dangerous_through_second_last_line_in_create) / NULLIF(SUM(de.count_through_second_last_line_in_create), 0)) * 100 AS percentage_through_second_last_line_in_create_dangerous,
+  (SUM(de.count_difficult_through_second_last_line_in_create) / NULLIF(SUM(de.count_through_second_last_line_in_create), 0)) * 100 AS percentage_through_second_last_line_in_create_difficult_target,
+
+
+
+  (SUM(de.count_through_second_last_line_in_finish) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_through_second_last_line_in_finish_per_30_tip,
+  (SUM(de.count_targeted_through_second_last_line_in_finish) / NULLIF(SUM(de.count_through_second_last_line_in_finish), 0)) * 100 AS percentage_through_second_last_line_in_finish_targeted,
+  (SUM(de.count_received_through_second_last_line_in_finish) / NULLIF(SUM(de.count_targeted_through_second_last_line_in_finish), 0)) * 100 AS percentage_through_second_last_line_in_finish_received,
+  (SUM(de.xthreat_through_second_last_line_in_finish) / NULLIF(SUM(de.count_through_second_last_line_in_finish), 0)) AS avg_xthreat_per_through_second_last_line_in_finish,
+  (SUM(de.xpass_completion_through_second_last_line_in_finish) / NULLIF(SUM(de.count_through_second_last_line_in_finish), 0)) AS avg_xpass_completion_through_second_last_line_in_finish,
+  (SUM(de.count_dangerous_through_second_last_line_in_finish) / NULLIF(SUM(de.count_through_second_last_line_in_finish), 0)) * 100 AS percentage_through_second_last_line_in_finish_dangerous,
+  (SUM(de.count_difficult_through_second_last_line_in_finish) / NULLIF(SUM(de.count_through_second_last_line_in_finish), 0)) * 100 AS percentage_through_second_last_line_in_finish_difficult_target,
+
+
+
+  (SUM(de.count_around_second_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_around_second_last_line_per_30_tip,
+  (SUM(de.count_targeted_around_second_last_line) / NULLIF(SUM(de.count_around_second_last_line), 0)) * 100 AS percentage_around_second_last_line_targeted,
+  (SUM(de.count_received_around_second_last_line) / NULLIF(SUM(de.count_targeted_around_second_last_line), 0)) * 100 AS percentage_around_second_last_line_received,
+  (SUM(de.xthreat_around_second_last_line) / NULLIF(SUM(de.count_around_second_last_line), 0)) AS avg_xthreat_per_around_second_last_line,
+  (SUM(de.xpass_completion_around_second_last_line) / NULLIF(SUM(de.count_around_second_last_line), 0)) AS avg_xpass_completion_around_second_last_line,
+  (SUM(de.count_dangerous_around_second_last_line) / NULLIF(SUM(de.count_around_second_last_line), 0)) * 100 AS percentage_around_second_last_line_dangerous,
+  (SUM(de.count_difficult_around_second_last_line) / NULLIF(SUM(de.count_around_second_last_line), 0)) * 100 AS percentage_around_second_last_line_difficult_target,
+
+
+
+  (SUM(de.count_around_second_last_line_in_build_up) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_around_second_last_line_in_build_up_per_30_tip,
+  (SUM(de.count_targeted_around_second_last_line_in_build_up) / NULLIF(SUM(de.count_around_second_last_line_in_build_up), 0)) * 100 AS percentage_around_second_last_line_in_build_up_targeted,
+  (SUM(de.count_received_around_second_last_line_in_build_up) / NULLIF(SUM(de.count_targeted_around_second_last_line_in_build_up), 0)) * 100 AS percentage_around_second_last_line_in_build_up_received,
+  (SUM(de.xthreat_around_second_last_line_in_build_up) / NULLIF(SUM(de.count_around_second_last_line_in_build_up), 0)) AS avg_xthreat_per_around_second_last_line_in_build_up,
+  (SUM(de.xpass_completion_around_second_last_line_in_build_up) / NULLIF(SUM(de.count_around_second_last_line_in_build_up), 0)) AS avg_xpass_completion_around_second_last_line_in_build_up,
+  (SUM(de.count_dangerous_around_second_last_line_in_build_up) / NULLIF(SUM(de.count_around_second_last_line_in_build_up), 0)) * 100 AS percentage_around_second_last_line_in_build_up_dangerous,
+  (SUM(de.count_difficult_around_second_last_line_in_build_up) / NULLIF(SUM(de.count_around_second_last_line_in_build_up), 0)) * 100 AS percentage_around_second_last_line_in_build_up_difficult_target,
+
+
+
+  (SUM(de.count_around_second_last_line_in_create) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_around_second_last_line_in_create_per_30_tip,
+  (SUM(de.count_targeted_around_second_last_line_in_create) / NULLIF(SUM(de.count_around_second_last_line_in_create), 0)) * 100 AS percentage_around_second_last_line_in_create_targeted,
+  (SUM(de.count_received_around_second_last_line_in_create) / NULLIF(SUM(de.count_targeted_around_second_last_line_in_create), 0)) * 100 AS percentage_around_second_last_line_in_create_received,
+  (SUM(de.xthreat_around_second_last_line_in_create) / NULLIF(SUM(de.count_around_second_last_line_in_create), 0)) AS avg_xthreat_per_around_second_last_line_in_create,
+  (SUM(de.xpass_completion_around_second_last_line_in_create) / NULLIF(SUM(de.count_around_second_last_line_in_create), 0)) AS avg_xpass_completion_around_second_last_line_in_create,
+  (SUM(de.count_dangerous_around_second_last_line_in_create) / NULLIF(SUM(de.count_around_second_last_line_in_create), 0)) * 100 AS percentage_around_second_last_line_in_create_dangerous,
+  (SUM(de.count_difficult_around_second_last_line_in_create) / NULLIF(SUM(de.count_around_second_last_line_in_create), 0)) * 100 AS percentage_around_second_last_line_in_create_difficult_target,
+
+
+
+  (SUM(de.count_around_second_last_line_in_finish) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_around_second_last_line_in_finish_per_30_tip,
+  (SUM(de.count_targeted_around_second_last_line_in_finish) / NULLIF(SUM(de.count_around_second_last_line_in_finish), 0)) * 100 AS percentage_around_second_last_line_in_finish_targeted,
+  (SUM(de.count_received_around_second_last_line_in_finish) / NULLIF(SUM(de.count_targeted_around_second_last_line_in_finish), 0)) * 100 AS percentage_around_second_last_line_in_finish_received,
+  (SUM(de.xthreat_around_second_last_line_in_finish) / NULLIF(SUM(de.count_around_second_last_line_in_finish), 0)) AS avg_xthreat_per_around_second_last_line_in_finish,
+  (SUM(de.xpass_completion_around_second_last_line_in_finish) / NULLIF(SUM(de.count_around_second_last_line_in_finish), 0)) AS avg_xpass_completion_around_second_last_line_in_finish,
+  (SUM(de.count_dangerous_around_second_last_line_in_finish) / NULLIF(SUM(de.count_around_second_last_line_in_finish), 0)) * 100 AS percentage_around_second_last_line_in_finish_dangerous,
+  (SUM(de.count_difficult_around_second_last_line_in_finish) / NULLIF(SUM(de.count_around_second_last_line_in_finish), 0)) * 100 AS percentage_around_second_last_line_in_finish_difficult_target,
+
+
+
+  (SUM(de.count_through_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_through_last_line_per_30_tip,
+  (SUM(de.count_targeted_through_last_line) / NULLIF(SUM(de.count_through_last_line), 0)) * 100 AS percentage_through_last_line_targeted,
+  (SUM(de.count_received_through_last_line) / NULLIF(SUM(de.count_targeted_through_last_line), 0)) * 100 AS percentage_through_last_line_received,
+  (SUM(de.xthreat_through_last_line) / NULLIF(SUM(de.count_through_last_line), 0)) AS avg_xthreat_per_through_last_line,
+  (SUM(de.xpass_completion_through_last_line) / NULLIF(SUM(de.count_through_last_line), 0)) AS avg_xpass_completion_through_last_line,
+  (SUM(de.count_dangerous_through_last_line) / NULLIF(SUM(de.count_through_last_line), 0)) * 100 AS percentage_through_last_line_dangerous,
+  (SUM(de.count_difficult_through_last_line) / NULLIF(SUM(de.count_through_last_line), 0)) * 100 AS percentage_through_last_line_difficult_target,
+
+
+
+  (SUM(de.count_through_last_line_in_build_up) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_through_last_line_in_build_up_per_30_tip,
+  (SUM(de.count_targeted_through_last_line_in_build_up) / NULLIF(SUM(de.count_through_last_line_in_build_up), 0)) * 100 AS percentage_through_last_line_in_build_up_targeted,
+  (SUM(de.count_received_through_last_line_in_build_up) / NULLIF(SUM(de.count_targeted_through_last_line_in_build_up), 0)) * 100 AS percentage_through_last_line_in_build_up_received,
+  (SUM(de.xthreat_through_last_line_in_build_up) / NULLIF(SUM(de.count_through_last_line_in_build_up), 0)) AS avg_xthreat_per_through_last_line_in_build_up,
+  (SUM(de.xpass_completion_through_last_line_in_build_up) / NULLIF(SUM(de.count_through_last_line_in_build_up), 0)) AS avg_xpass_completion_through_last_line_in_build_up,
+  (SUM(de.count_dangerous_through_last_line_in_build_up) / NULLIF(SUM(de.count_through_last_line_in_build_up), 0)) * 100 AS percentage_through_last_line_in_build_up_dangerous,
+  (SUM(de.count_difficult_through_last_line_in_build_up) / NULLIF(SUM(de.count_through_last_line_in_build_up), 0)) * 100 AS percentage_through_last_line_in_build_up_difficult_target,
+
+
+
+  (SUM(de.count_through_last_line_in_create) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_through_last_line_in_create_per_30_tip,
+  (SUM(de.count_targeted_through_last_line_in_create) / NULLIF(SUM(de.count_through_last_line_in_create), 0)) * 100 AS percentage_through_last_line_in_create_targeted,
+  (SUM(de.count_received_through_last_line_in_create) / NULLIF(SUM(de.count_targeted_through_last_line_in_create), 0)) * 100 AS percentage_through_last_line_in_create_received,
+  (SUM(de.xthreat_through_last_line_in_create) / NULLIF(SUM(de.count_through_last_line_in_create), 0)) AS avg_xthreat_per_through_last_line_in_create,
+  (SUM(de.xpass_completion_through_last_line_in_create) / NULLIF(SUM(de.count_through_last_line_in_create), 0)) AS avg_xpass_completion_through_last_line_in_create,
+  (SUM(de.count_dangerous_through_last_line_in_create) / NULLIF(SUM(de.count_through_last_line_in_create), 0)) * 100 AS percentage_through_last_line_in_create_dangerous,
+  (SUM(de.count_difficult_through_last_line_in_create) / NULLIF(SUM(de.count_through_last_line_in_create), 0)) * 100 AS percentage_through_last_line_in_create_difficult_target,
+
+
+
+  (SUM(de.count_through_last_line_in_finish) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_through_last_line_in_finish_per_30_tip,
+  (SUM(de.count_targeted_through_last_line_in_finish) / NULLIF(SUM(de.count_through_last_line_in_finish), 0)) * 100 AS percentage_through_last_line_in_finish_targeted,
+  (SUM(de.count_received_through_last_line_in_finish) / NULLIF(SUM(de.count_targeted_through_last_line_in_finish), 0)) * 100 AS percentage_through_last_line_in_finish_received,
+  (SUM(de.xthreat_through_last_line_in_finish) / NULLIF(SUM(de.count_through_last_line_in_finish), 0)) AS avg_xthreat_per_through_last_line_in_finish,
+  (SUM(de.xpass_completion_through_last_line_in_finish) / NULLIF(SUM(de.count_through_last_line_in_finish), 0)) AS avg_xpass_completion_through_last_line_in_finish,
+  (SUM(de.count_dangerous_through_last_line_in_finish) / NULLIF(SUM(de.count_through_last_line_in_finish), 0)) * 100 AS percentage_through_last_line_in_finish_dangerous,
+  (SUM(de.count_difficult_through_last_line_in_finish) / NULLIF(SUM(de.count_through_last_line_in_finish), 0)) * 100 AS percentage_through_last_line_in_finish_difficult_target,
+
+
+
+  (SUM(de.count_around_last_line) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_around_last_line_per_30_tip,
+  (SUM(de.count_targeted_around_last_line) / NULLIF(SUM(de.count_around_last_line), 0)) * 100 AS percentage_around_last_line_targeted,
+  (SUM(de.count_received_around_last_line) / NULLIF(SUM(de.count_targeted_around_last_line), 0)) * 100 AS percentage_around_last_line_received,
+  (SUM(de.xthreat_around_last_line) / NULLIF(SUM(de.count_around_last_line), 0)) AS avg_xthreat_per_around_last_line,
+  (SUM(de.xpass_completion_around_last_line) / NULLIF(SUM(de.count_around_last_line), 0)) AS avg_xpass_completion_around_last_line,
+  (SUM(de.count_dangerous_around_last_line) / NULLIF(SUM(de.count_around_last_line), 0)) * 100 AS percentage_around_last_line_dangerous,
+  (SUM(de.count_difficult_around_last_line) / NULLIF(SUM(de.count_around_last_line), 0)) * 100 AS percentage_around_last_line_difficult_target,
+
+
+
+  (SUM(de.count_around_last_line_in_build_up) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_around_last_line_in_build_up_per_30_tip,
+  (SUM(de.count_targeted_around_last_line_in_build_up) / NULLIF(SUM(de.count_around_last_line_in_build_up), 0)) * 100 AS percentage_around_last_line_in_build_up_targeted,
+  (SUM(de.count_received_around_last_line_in_build_up) / NULLIF(SUM(de.count_targeted_around_last_line_in_build_up), 0)) * 100 AS percentage_around_last_line_in_build_up_received,
+  (SUM(de.xthreat_around_last_line_in_build_up) / NULLIF(SUM(de.count_around_last_line_in_build_up), 0)) AS avg_xthreat_per_around_last_line_in_build_up,
+  (SUM(de.xpass_completion_around_last_line_in_build_up) / NULLIF(SUM(de.count_around_last_line_in_build_up), 0)) AS avg_xpass_completion_around_last_line_in_build_up,
+  (SUM(de.count_dangerous_around_last_line_in_build_up) / NULLIF(SUM(de.count_around_last_line_in_build_up), 0)) * 100 AS percentage_around_last_line_in_build_up_dangerous,
+  (SUM(de.count_difficult_around_last_line_in_build_up) / NULLIF(SUM(de.count_around_last_line_in_build_up), 0)) * 100 AS percentage_around_last_line_in_build_up_difficult_target,
+
+
+
+  (SUM(de.count_around_last_line_in_create) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_around_last_line_in_create_per_30_tip,
+  (SUM(de.count_targeted_around_last_line_in_create) / NULLIF(SUM(de.count_around_last_line_in_create), 0)) * 100 AS percentage_around_last_line_in_create_targeted,
+  (SUM(de.count_received_around_last_line_in_create) / NULLIF(SUM(de.count_targeted_around_last_line_in_create), 0)) * 100 AS percentage_around_last_line_in_create_received,
+  (SUM(de.xthreat_around_last_line_in_create) / NULLIF(SUM(de.count_around_last_line_in_create), 0)) AS avg_xthreat_per_around_last_line_in_create,
+  (SUM(de.xpass_completion_around_last_line_in_create) / NULLIF(SUM(de.count_around_last_line_in_create), 0)) AS avg_xpass_completion_around_last_line_in_create,
+  (SUM(de.count_dangerous_around_last_line_in_create) / NULLIF(SUM(de.count_around_last_line_in_create), 0)) * 100 AS percentage_around_last_line_in_create_dangerous,
+  (SUM(de.count_difficult_around_last_line_in_create) / NULLIF(SUM(de.count_around_last_line_in_create), 0)) * 100 AS percentage_around_last_line_in_create_difficult_target,
+
+
+
+  (SUM(de.count_around_last_line_in_finish) / NULLIF(SUM(phys.minutes_full_tip), 0)) * 30 AS count_around_last_line_in_finish_per_30_tip,
+  (SUM(de.count_targeted_around_last_line_in_finish) / NULLIF(SUM(de.count_around_last_line_in_finish), 0)) * 100 AS percentage_around_last_line_in_finish_targeted,
+  (SUM(de.count_received_around_last_line_in_finish) / NULLIF(SUM(de.count_targeted_around_last_line_in_finish), 0)) * 100 AS percentage_around_last_line_in_finish_received,
+  (SUM(de.xthreat_around_last_line_in_finish) / NULLIF(SUM(de.count_around_last_line_in_finish), 0)) AS avg_xthreat_per_around_last_line_in_finish,
+  (SUM(de.xpass_completion_around_last_line_in_finish) / NULLIF(SUM(de.count_around_last_line_in_finish), 0)) AS avg_xpass_completion_around_last_line_in_finish,
+  (SUM(de.count_dangerous_around_last_line_in_finish) / NULLIF(SUM(de.count_around_last_line_in_finish), 0)) * 100 AS percentage_around_last_line_in_finish_dangerous,
+  (SUM(de.count_difficult_around_last_line_in_finish) / NULLIF(SUM(de.count_around_last_line_in_finish), 0)) * 100 AS percentage_around_last_line_in_finish_difficult_target
+
+FROM 
+  ${ref("dynamic_events_ip", "line_breaking_options")} AS de
+JOIN
+  ${ref("physical_data", "physical_data")}  AS phys
+ON
+  de.player_id = phys.player_id
+  AND de.match_id = phys.match_id
+JOIN
+  ${ref("metadata", "players")} AS players
+ON
+  de.player_id = players.id
+JOIN
+  ${ref("metadata", "teams")} AS teams
+ON
+  phys.team_id = CAST(teams.id AS INT)
+JOIN
+  ${ref("metadata", "match_metadata")} AS match 
+ON
+  de.match_id = match.match_id
+JOIN
+  ${ref("metadata", "competition_editions")} AS ce
+ON
+   ce.id = phys.competition_edition_id
+WHERE
+  phys.minutes_full_all >= 60
+GROUP BY
+  de.player_id,
+  phys.team_id,
+  phys.competition_edition_id,
+  competition_edition_name,
+  phys.competition_id,
+  phys.competition_name,
+  phys.season_id,
+  phys.season_name,
+  phys.position_group,
+  players.first_name,
+  players.last_name,
+  players.short_name,
+  teams.name
