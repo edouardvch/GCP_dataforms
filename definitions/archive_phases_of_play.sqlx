@@ -2,5 +2,5 @@ config {
   type: "declaration",
   database: "analysisteam-cloudsql",
   schema: "skillcorner_external_data",
-  name: "phases_of_play"
+  name: "archive_phases_of_play"
 }

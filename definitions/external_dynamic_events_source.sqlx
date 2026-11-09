@@ -1,6 +1,0 @@
-config {
-  type: "declaration",
-  database: "skillcorner-analysis-app",
-  schema: "external_tables",
-  name: "dynamic_events_v3"
-}

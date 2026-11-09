@@ -1,0 +1,21 @@
+config {
+    type: "table",
+    schema: "events",
+    name: "dynamic_events",
+    description: "",
+    bigquery: {
+        clusterBy: ["match_id", "player_id"]
+    },
+    assertions:{
+        nonNull: ["match_id", "player_id"]
+    }
+}
+
+SELECT * FROM ${ref("external_tables", "dynamic_events_v3")}
+
+UNION DISTINCT
+
+SELECT de.* FROM ${ref("skillcorner_external_data", "archive_dynamic_events")} AS de
+JOIN ${ref("skillcorner_external_data", "archive_match_metadata")} AS mm
+ON mm.match_id = de.match_id
+WHERE mm.competition_edition_season_id NOT IN (29, 28)

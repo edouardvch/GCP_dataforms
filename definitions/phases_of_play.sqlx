@@ -1,0 +1,21 @@
+config {
+    type: "table",
+    schema: "events",
+    name: "phases_of_play",
+    description: "",
+    bigquery: {
+        clusterBy: ["match_id", "player_id"]
+    },
+    assertions:{
+        nonNull: ["match_id", "player_id"]
+    }
+}
+
+SELECT * FROM ${ref("external_tables", "phases_of_play")}
+
+UNION DISTINCT
+
+SELECT pop.* FROM ${ref("skillcorner_external_data", "archive_phases_of_play")} AS pop
+JOIN ${ref("skillcorner_external_data", "archive_match_metadata")} AS mm
+ON mm.match_id = pop.match_id
+WHERE mm.competition_edition_season_id NOT IN (29, 28)
