@@ -4,10 +4,10 @@ config {
     name: "phases_of_play",
     description: "",
     bigquery: {
-        clusterBy: ["match_id", "player_id"]
+        clusterBy: ["match_id", "team_in_possession_id"]
     },
     assertions:{
-        nonNull: ["match_id", "player_id"]
+        nonNull: ["match_id", "team_in_possession_id"]
     }
 }
 
