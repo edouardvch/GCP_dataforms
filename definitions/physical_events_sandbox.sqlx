@@ -1,15 +1,52 @@
 config {
     type: "table",
-    schema: "physical_data_sandbox",
+    schema: "physical_events_sandbox",
     name: "physical_events",
     description: "",
     bigquery: {
-        clusterBy: ["match_id", "player_id", "team_id"]
+        clusterBy: ["match_id", "player_id", "team_id", "competition_id", "competition_edition_id"]
     },
     assertions:{
-        nonNull: ["match_id", "player_id", "team_id"]
+        nonNull: ["match_id", "player_id", "team_id", "competition_id", "competition_edition_id"]
     }
 }
 
-SELECT *
-FROM ${ref("external_tables", "physical_events_v4")}
+WITH modified_events AS (
+    SELECT
+      physical_events.*,    
+      -- Higher level positional group.
+      CASE 
+        WHEN physical_events.player_position IN ('GK') THEN 'Goalkeeper'
+        WHEN physical_events.player_position IN ('LCB', 'CB', 'RCB') THEN 'Central Defender'
+        WHEN physical_events.player_position IN ('LWB', 'LB') THEN 'Left Full Back'
+        WHEN physical_events.player_position IN ('RWB', 'RB') THEN 'Right Full Back'
+        WHEN physical_events.player_position IN ('LDM', 'DM', 'RDM') THEN 'Defensive Midfield'
+        WHEN physical_events.player_position IN ('LM', 'AM', 'RM') THEN 'Midfield'
+        WHEN physical_events.player_position IN ('LW', 'LF') THEN 'Left Wide Attacker'
+        WHEN physical_events.player_position IN ('RW', 'RF') THEN 'Right Wide Attacker'
+        WHEN physical_events.player_position IN ('CF') THEN 'Center Forward'
+        ELSE 'Other Position'
+      END AS player_position_group,
+
+      -- Additional match information.
+      CAST(match_meta.competition_edition_id AS int64) AS competition_edition_id,
+      ce.name AS competition_edition_name,
+      ce.competition_id,
+      ce.competition_name,
+      ce.season_id,
+      ce.season_name,
+      CONCAT(match_meta.home_team_name, ' v ',match_meta.away_team_name,' (', match_meta.date_time, ')') AS match_name,
+
+      CASE WHEN physical_events.team_id = match_meta.home_team_id THEN match_meta.away_team_id ELSE match_meta.home_team_id END AS opposition_team_id
+
+    FROM
+        ${ref("external_tables", "physical_events_v4")} AS physical_events 
+    JOIN 
+      ${ref("metadata", "match_metadata")} AS match_meta  
+    ON physical_events.match_id = match_meta.match_id
+    JOIN 
+      ${ref("metadata", "competition_editions")} AS ce  
+    ON ce.id = match_meta.competition_edition_id
+)
+
+SELECT * FROM modified_events
