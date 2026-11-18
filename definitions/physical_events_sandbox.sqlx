@@ -1,0 +1,15 @@
+config {
+    type: "table",
+    schema: "physical_data_sandbox",
+    name: "physical_events",
+    description: "",
+    bigquery: {
+        clusterBy: ["match_id", "player_id", "competition_edition_id"]
+    },
+    assertions:{
+        nonNull: ["match_id", "player_id", "competition_id", "competition_edition_id", "season_id"]
+    }
+}
+
+SELECT *
+FROM ${ref("external_tables", "physical_events_v4")}
