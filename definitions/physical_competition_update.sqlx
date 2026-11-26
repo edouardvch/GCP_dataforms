@@ -164,7 +164,7 @@ FROM
     ${ref("physical_data", "physical_data")}
 WHERE
   minutes_full_all >= 60
-  AND physical_check_passed = True
+  AND physical_quality_index >= 3
 GROUP BY 
     competition_id,
     competition_name,

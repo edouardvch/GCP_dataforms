@@ -40,7 +40,7 @@ WITH RankedData AS (
        ON phys.competition_edition_id = comps.id
     WHERE
         phys.minutes_full_all >= 60
-        AND phys.physical_check_passed = True
+        AND phys.physical_quality_index >= 3
 )
 
 SELECT
