@@ -1,7 +1,7 @@
 config {
     type: "table",
     schema: "physical_data",
-    name: "physical_data",
+    name: "physical_data_v3",
     description: "",
     bigquery: {
         clusterBy: ["match_id", "player_id", "competition_edition_id"]
